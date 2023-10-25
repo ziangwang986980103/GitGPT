@@ -1,0 +1,239 @@
+design:
+divide the file into chunks and analyze them parallelously. Each chunk size is 3000 characters.
+
+prompt:
+You are an expert content summarizer with a knack for distilling essential high-level information from various types of content. 
+Your task is to generate a succinct summary for each chunk of content provided. The content may appear in several forms:
+    1.Code Snippets: For instance, 'if human_notes is None: raise ValueError(human_notes)'
+    2.File/Directory Summaries: For example, 'the code checks if a directory named "node_modules" does not exist.'
+    3.Multiple Summaries of Various Files/Directories: You might be provided with summaries of various files and directories within a specific directory. For instance, '{path: 'demo', type: 'dir', summary: 'this directory contains a demo of the project'}, 
+    {path: 'build.js',type:'file',summary: 'The code clones the repository, compiles the code.'}'.For this type of content, initiate your summary 
+    with "This directory..." and provide a synthesized understanding of the directory's overarching function or role, by integrating the information from the individual summaries provided.
+
+For each type of content, your summary should commence appropriately:
+    1.Start with "The file..." for code snippets.
+    2.Begin with "The file" or "The directory"for file or directory summaries.
+    3.Initiate with "This directory..." for summaries concerning multiple files/directories
+
+Examples:
+
+    1.Input: 'if human_notes is None: raise ValueError(human_notes)'
+    Output: 'The code raises a ValueError if human_notes is None.'
+    2.Input: 'the code checks if a directory named "node_modules" does not exist.'
+    Output: 'This directory contains code that verifies the non-existence of a directory named "node_modules".'
+    3.Input: '{path: 'demo', type: 'dir', summary: 'this directory contains a demo of the project'}, {path: 'build.js',type:'file',summary: 'The code clones the repository, compiles the code.'}'
+    Output: 'This directory serves as a hub for demonstrating the project's capabilities through a demo, as well as managing the project’s version control and compilation processes through build.js.'
+
+Contextual Understanding:
+    Ensure your summaries maintain a logical and contextual understanding across multiple summaries, especially when provided with content type 3.
+    The summaries should flow naturally and exhibit a coherent understanding of the overall structure and functionality described across various 
+    files and directories.
+
+Note: Each summary should be concise, encapsulating the crucial high-level information
+
+code:
+async function do_summary(text) {
+    let messages = [
+        { role: "system", content: prompt_summarize },
+        { role: "user", content: 'Here is the content:' }
+    ];
+    const jsonData = {
+        model: "gpt-3.5-turbo-16k",
+        messages: messages
+    };
+    if (text.length <= 3000) {
+        try {
+            //just summarize the actual text
+            messages[messages.length - 1].content += text;
+            // jsonData.max_tokens = Math.max(1, Math.ceil(text.length *2));
+            const completion = await openai.chat.completions.create(jsonData);
+            return completion.choices[0].message.content;
+        }
+        catch (error) {
+            console.error(`error in do_summary ${error || error.status}`);
+        }
+    }
+    try {
+        const chunks = chunkify_text(text, 3000);
+        const promises = chunks.map(async (value, i) => {
+            return await do_summary(value);
+        });
+        const results = await Promise.allSettled(promises);
+        let successResults = results.filter((value, i) => { return value.status === "fulfilled" }).map((v, i) => { return JSON.stringify(v.value) });
+        const concatenated = successResults.join();
+        return await do_summary(concatenated);
+        //concatenated the previous summary to the current one
+        // const chunks = chunkify_text(text, 3000);
+        // let summary = "";
+        // // const summaries = [];
+
+        // for (let i = 0; i < chunks.length; i++) {
+        //     const currentText = summary + chunks[i];
+        //     summary = await do_summary(currentText);
+        //     // summaries.push(summary);
+        //     // concatenatedSummaries += summary;
+        // }
+        // return summary;
+    }
+    catch (error) {
+        console.error(`error in do_summary ${error || error.status}`);
+    }
+}
+
+output:
+{
+  "path": "https://github.com/Felx-B/vscode-web",
+  "type": "dir",
+  "summary": "This directory serves as a hub for building and managing a web version of VSCode. 
+  It includes a StackBlitz sample and a project for generating and customizing web versions of VSCode and Github Dev. 
+  The project requires implementing a FileSystemProvider through extension and utilizing proposed APIs for implementing a TextSearchProvider 
+  and FileSearchProvider. Additionally, it provides a sample project demonstrating the usage of vscode-web. 
+  The directory also contains an Extension Gallery available through the Open VSX Registry, 
+  which involves cloning the vscode repository, checking for the existence of a directory named \"node_modules\", 
+  installing dependencies, compiling the code, and creating a distribution directory. 
+  It manages various logs, diagnostic reports, runtime data, coverage, dependencies, cache, and build output files. 
+  The directory also contains a file with the MIT License for the software. 
+  Lastly, it includes files setting up an Express server, an HTML document for the web application, 
+  and a product configuration file.\n\nThis directory also serves as a hub for developing the Visual Studio Code web application. 
+  It includes HTML, CSS, and JavaScript files, as well as code snippets for creating SVG elements, defining a Position class, 
+  and handling file system operations within the \"myExt\" directory. 
+  It is a starting point for developing a custom debug adapter and includes a mock debug extension for simulation. 
+  The \"vscode-web-playground\" file within the \"myExt\" directory is a web playground for VS Code, contributing to various features and depending on packages like \"express\" and \"vscode-web\". The \"package.json\" file outlines dependency versions, the \"yarn.lock\" file specifies package versions, and the \"tsconfig.json\" file sets TypeScript compiler options. The \"workbench.ts\" file creates a workbench using the specified DOM element and configuration.",
+  "children": [
+    {
+      "path": ".github",
+      "type": "dir",
+      "summary": "This directory contains a workflow file named \"npm-publish.yml\" in the \".github/workflows\" directory. The workflow performs several steps, including checking out the repository, setting up the node environment, installing dependencies, building the project, and publishing the package to the npm registry when a release is created. The workflow utilizes GitHub Actions and specifies the use of the ubuntu-latest operating system. A secret token is used for publishing the package to the npm registry.",
+      "children": [
+        {
+          "path": ".github/workflows",
+          "type": "dir",
+          "summary": "The file \".github/workflows/npm-publish.yml\" contains a workflow that performs various steps such as checking out the repository, setting up the node environment, installing dependencies, building the project, and publishing the package to the npm registry when a release is created. It utilizes GitHub Actions and specifies the use of the ubuntu-latest operating system. A secret token is utilized for publishing the package to the npm registry.",
+          "children": [
+            {
+              "path": ".github/workflows/npm-publish.yml",
+              "type": "file",
+              "summary": "The file contains a workflow that runs tests using node and publishes a package to GitHub Packages when a release is created. It uses the GitHub Actions feature and specifies the ubuntu-latest operating system. The workflow includes several steps such as checking out the repository, setting up the node environment, installing dependencies, building the project, and finally publishing the package to the npm registry using the provided secret token."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": ".gitignore",
+      "type": "file",
+      "summary": "The directory contains various files and directories for managing logs, diagnostic reports, runtime data, coverage, dependencies, cache, build output, and other project-related files."
+    },
+    {
+      "path": "LICENSE",
+      "type": "file",
+      "summary": "The file contains the MIT License, granting permission to use, modify, distribute, and sell the software, provided the original notice and permission notice are included. The software is provided \"as is\" without any warranty. The authors or copyright holders are not liable for any claims or damages."
+    },
+    {
+      "path": "README.md",
+      "type": "file",
+      "summary": "This directory serves as a hub for building a web version of VSCode. It includes a StackBlitz sample and can be used to generate and customize web versions of VSCode and Github Dev. The project has been simplified to use the official compilation and requires implementing a FileSystemProvider through extension. Additionally, proposed API can be used to implement a TextSearchProvider and FileSearchProvider. The directory also includes a sample project that demonstrates the usage of vscode-web, although it lacks a FileSystemProvider extension. The project can be built and run, and there is also an Extension Gallery available through the Open VSX Registry. Building from source and running the demo involve following the same commands."
+    },
+    {
+      "path": "build.js",
+      "type": "file",
+      "summary": "The file clones the vscode repository from GitHub and checks if a directory named \"node_modules\" exists. If it does not exist, it installs the required dependencies using Yarn. It then copies a file named \"workbench.ts\" to a specific directory and compiles the code using \"yarn gulp vscode-web-min\". Finally, it deletes the existing \"dist\" directory if it exists, creates a new one, and copies the compiled files from \"vscode-web\" to the \"dist\" directory."
+    },
+    {
+      "path": "demo",
+      "type": "dir",
+      "summary": "This directory contains several files that collectively set up and serve a web application. The file 'demo/http.js' establishes an Express server that serves static files and listens on port 8080. The file 'demo/index.html' is an HTML document with meta tags, external resource links, and script tags for initializing components of the web application. Lastly, the file 'demo/product.json' holds configuration details for a product called \"Code Web\", including the product name, application name, data folder name, version, and enabled API proposals for a specific extension. It is associated with a folder named \"sample-folder\" using the \"memfs\" scheme and has an additional built-in extension with a scheme \"http\" and path \"/static/extensions/vscode-web-playground\".",
+      "children": [
+        {
+          "path": "demo/http.js",
+          "type": "file",
+          "summary": "The code sets up an Express server that serves static files from the './demo' directory. It listens on port 8080."
+        },
+        {
+          "path": "demo/index.html",
+          "type": "file",
+          "summary": "The file is an HTML document that includes various meta tags and links to external resources. It also includes several script tags at the end for initializing and loading different components of the web application."
+        },
+        {
+          "path": "demo/product.json",
+          "type": "file",
+          "summary": "The file contains the configuration details for a product called \"Code Web\". It includes information such as the product name, application name, data folder name, and the version. The configuration also specifies enabled API proposals for a specific extension. The file is associated with a folder named \"sample-folder\" using a \"memfs\" scheme. Additionally, there is an additional built-in extension with a scheme \"http\" and a path \"/static/extensions/vscode-web-playground\"."
+        }
+      ]
+    },
+    {
+      "path": "package.json",
+      "type": "file",
+      "summary": "The file 'vscode-web' is a browser version of Visual Studio Code. It has a version number of 1.83.1 and is described as being for the browser. The main files of interest within this project are in the 'dist' directory. The file contains several scripts, including a build script that uses 'build.js', a script to prepare the demo using 'prepare-demo.js', and a demo script using 'http.js'. The project is hosted on GitHub under the repository name 'vscode-web' by the author Felix B. It is licensed under the MIT license. The file also provides information about where to report bugs and the project's homepage. The file has devDependencies on 'express' version 4.17.1 and 'fs-extra' version 9.0.1, but no other dependencies are listed."
+    },
+    {
+      "path": "prepare-demo.js",
+      "type": "file",
+      "summary": "The code deletes the \"./demo/static\" directory if it exists. Then, it copies the contents of \"./dist/extensions\", \"./dist/node_modules\", and \"./dist/out\" directories to \"./demo/static\". It also clones the \"vscode-web-playground\" repository and places it at \"./demo/static/extensions/vscode-web-playground\"."
+    },
+    {
+      "path": "sample",
+      "type": "dir",
+      "summary": "This directory serves as a hub for managing the project's various functionalities. The file \"http.js\" creates a web server using Express.js and serves static files. The \"index.html\" file is an HTML document with meta tags for mobile web applications, links to icons and CSS files, and script tags for loading JavaScript files for the Visual Studio Code web application.\n\nWithin the \"myExt\" directory, there are code snippets for creating SVG elements and defining a Position class, as well as handling file system operations like creating, writing, renaming, and deleting files. This directory also serves as a starting point for developing a custom debug adapter for Visual Studio Code. It includes a mock debug extension for simulating the debugging process and provides code snippets for creating and assigning different variables.\n\nThe \"vscode-web-playground\" file within the \"myExt\" directory is a web playground for VS Code, published by vscode. It has a version number, license information, and contributes to various features within VS Code. It includes scripts for compiling, watching, and running in production mode, and has dependencies on packages like \"express\" and \"vscode-web\".\n\nThe \"package.json\" file specifies the project's details and includes a script for running a Node.js server.\n\nThe \"product.json\" file contains information about a product, but its content is cut off and incomplete.\n\nThis directory contains the configuration details for the VSCode Web Sample. It includes the short and long names, application name, data folder name, version, and extension gallery information. The directory also supports additional built-in extensions and enables API proposals.\n\nThe file \"yarn.lock\" in this directory contains information about different packages and their versions. It includes a variety of packages such as depd, destroy, ee-first, encodeurl, escape-html, etag, express, finalhandler, media-typer, merge-descriptors, methods, mime-db, mime-types, mime, ms, negotiator, object-inspect, on-finished, and parseurl.",
+      "children": [
+        {
+          "path": "sample/http.js",
+          "type": "file",
+          "summary": "The file creates a web server using Express.js and serves static files from the specified directory. The server listens on port 8080."
+        },
+        {
+          "path": "sample/index.html",
+          "type": "file",
+          "summary": "The file contains an HTML document with various meta tags for mobile web applications. It also includes links to icons and CSS files. The script tags at the bottom of the file load JavaScript files for the Visual Studio Code web application."
+        },
+        {
+          "path": "sample/myExt",
+          "type": "dir",
+          "summary": "This directory serves as a hub for managing the project's workspace, activating modules, and handling build processes through various files and directories. It includes code snippets for creating SVG elements and defining a Position class. The directory also handles file system operations such as creating directories, writing files, renaming files, and deleting files. Additionally, it contains methods for finding files and directories, replacing and escaping characters in patterns, setting diagnostic messages, and activating certain features based on input parameters.\n\nThis directory further serves as a starting point for developing a custom debug adapter for Visual Studio Code. It includes a mock debug extension that simulates the debugging process by allowing users to step through code, set breakpoints, and encounter exceptions. Although this extension is not connected to a real debugger, it serves as a sample for developing a custom debug adapter. The file within this directory also contains code snippets that create and assign values to different variables, including an array of values created by converting characters to their char codes, and assignments for different file types.\n\nThe file \"vscode-web-playground\" within the \"sample/myExt\" directory is a web playground for VS Code. It has a version number of 0.0.13 and is published by vscode. The file is under the MIT license and includes enabled API proposals for the \"fileSearchProvider\" and \"textSearchProvider\". It is marked as private and is activated by events such as \"onFileSystem:memfs\" and \"onDebug\". The file's browser is located in the \"./extension\" directory. It requires a minimum version of VS Code 1.48.0. The file contributes to the \"viewsWelcome\" with debug and terminal views, as well as to \"taskDefinitions\" with a custom build script. It contains several scripts for compiling, watching, and running in production mode and has devDependencies such as \"@types/vscode\", \"ts-loader\", \"typescript\", \"webpack\", and \"webpack-cli\".",
+          "children": [
+            {
+              "path": "sample/myExt/extension.js",
+              "type": "file",
+              "summary": "This directory serves as a hub for managing the project's workspace, activating modules, and handling build processes through various files and directories. It includes code snippets for creating SVG elements and defining a Position class. The file system operations such as creating directories, writing files, renaming files, and deleting files are handled within the directory. It also contains methods for finding files and directories, as well as replacing and escaping characters in patterns. Additionally, it includes functionality for setting diagnostic messages and activating certain features based on input parameters. \n\nThis directory serves as a starting point for developing a custom debug adapter for Visual Studio Code. It includes a mock debug extension that allows users to simulate the debugging process by stepping through code, setting breakpoints, and encountering exceptions. The extension is not connected to a real debugger but serves as a sample for developing a custom debug adapter. Additionally, there are code snippets within the file that create and assign values to different variables, including an array of values created by converting characters to their char codes, and assignments for different file types."
+            },
+            {
+              "path": "sample/myExt/package.json",
+              "type": "file",
+              "summary": "The file \"vscode-web-playground\" is a web playground for VS Code. It has a version number of 0.0.13 and is published by vscode. The file is under the MIT license. It contains enabled API proposals for the \"fileSearchProvider\" and \"textSearchProvider\". The file is marked as private. It is activated by events such as \"onFileSystem:memfs\" and \"onDebug\". The file's browser is located in the \"./extension\" directory. The file requires a minimum version of VS Code 1.48.0. The file contributes to the \"viewsWelcome\" with debug and terminal views. It also contributes to \"taskDefinitions\" with a custom build script. The file has several scripts for compiling, watching, and running in production mode. It has devDependencies such as \"@types/vscode\", \"ts-loader\", \"typescript\", \"webpack\", and \"webpack-cli\"."
+            }
+          ]
+        },
+        {
+          "path": "sample/package.json",
+          "type": "file",
+          "summary": "The file is a package.json file for a project named \"web-editor\". It specifies the project's name, version, description, author, and license. It also includes a script named \"sample\" that runs a Node.js http server. The project has dependencies on the \"express\" and \"vscode-web\" packages."
+        },
+        {
+          "path": "sample/product.json",
+          "type": "file",
+          "summary": "The file defines the configuration details for the VSCode Web Sample. It includes the short and long names, application name, data folder name, version, and extension gallery information. The application supports the use of additional built-in extensions and enables API proposals for the \"vscode.vscode-web-playground\" extension. The file also specifies the folder URI scheme and path for the sample folder, as well as an additional built-in extension with a scheme and path."
+        },
+        {
+          "path": "sample/yarn.lock",
+          "type": "file",
+          "summary": "This directory contains information about different packages and their versions. It includes packages such as depd, destroy, ee-first, encodeurl, escape-html, etag, express, finalhandler, media-typer, merge-descriptors, methods, mime-db, mime-types, mime, ms, negotiator, object-inspect, on-finished, and parseurl."
+        }
+      ]
+    },
+    {
+      "path": "tsconfig.json",
+      "type": "file",
+      "summary": "The file contains compiler options for TypeScript. It specifies the module as \"amd\" and the module resolution as \"node\". The file also enables experimental decorators, enforces no implicit returns, checks for unused locals, disallows unreachable code, enables strict mode, enforces consistent casing in file names, and sets the base URL. Additionally, the file includes the path mapping for \"vs/*\" and lists the \"ES2015\" library. The file also specifies that only the \"workbench.ts\" file should be included."
+    },
+    {
+      "path": "workbench.ts",
+      "type": "file",
+      "summary": "The code snippet creates a workbench using the \"vs/workbench/workbench.web.main\" module. It retrieves the workbench construction options from the \"window.product\" object or fetches them from \"/product.json\". If the \"additionalBuiltinExtensions\" option is an array, it maps each extension to a \"URI\" object. The code then sets the workspace based on the provided \"folderUri\" or \"workspaceUri\" options. If a workspace is defined, it creates a workspace provider with the workspace information. Finally, it creates the workbench using the specified DOM element and configuration."
+    },
+    {
+      "path": "yarn.lock",
+      "type": "file",
+      "summary": "This directory contains a package.json file that outlines the versions and dependencies of various packages used in the project, such as 'cookie', 'debug', 'depd', 'destroy', 'ee-first', 'encodeurl', 'escape-html', 'etag', 'express', and 'finalhandler'. The file provides information on the version, resolved URL, and integrity of each dependency."
+    }
+  ]
+}

@@ -1,0 +1,301 @@
+design:
+use the parallel do_summary and the RecursiveCharacterTextSplitter to chunkify the text. However, the spent time is much longer than the output1 and output2,
+it takse 2974 seconds. The difference comes from the chunkify function.
+
+prompt:
+const prompt_summarize = `
+You are an expert content summarizer with a knack for distilling essential high-level information from various types of content. 
+Your task is to generate a succinct summary for each chunk of content provided. The content may appear in several forms:
+    1.Code Snippets: For instance, 'if human_notes is None: raise ValueError(human_notes)'
+    2.File/Directory Summaries: For example, 'the code checks if a directory named "node_modules" does not exist.'
+    3.Multiple Summaries of Various Files/Directories: You might be provided with summaries of various files and directories within a specific directory. For instance, '{path: 'demo', type: 'dir', summary: 'this directory contains a demo of the project'}, 
+    {path: 'build.js',type:'file',summary: 'The code clones the repository, compiles the code.'}'.For this type of content, initiate your summary 
+    with "This directory..." and provide a synthesized understanding of the directory's overarching function or role, by integrating the information from the individual summaries provided.
+
+For each type of content, your summary should commence appropriately:
+    1.Start with "The file..." for code snippets.
+    2.Begin with "The file" or "The directory"for file or directory summaries.
+    3.Initiate with "This directory..." for summaries concerning multiple files/directories
+
+Examples:
+
+    1.Input: 'if human_notes is None: raise ValueError(human_notes)'
+    Output: 'The code raises a ValueError if human_notes is None.'
+    2.Input: 'the code checks if a directory named "node_modules" does not exist.'
+    Output: 'This directory contains code that verifies the non-existence of a directory named "node_modules".'
+    3.Input: '{path: 'demo', type: 'dir', summary: 'this directory contains a demo of the project'}, {path: 'build.js',type:'file',summary: 'The code clones the repository, compiles the code.'}'
+    Output: 'This directory serves as a hub for demonstrating the project's capabilities through a demo, as well as managing the project’s version control and compilation processes through build.js.'
+
+Contextual Understanding:
+    Ensure your summaries maintain a logical and contextual understanding across multiple summaries, especially when provided with content type 3.
+    The summaries should flow naturally and exhibit a coherent understanding of the overall structure and functionality described across various 
+    files and directories.
+
+Note: Each summary should be concise, encapsulating the crucial high-level information. Also, you will need to infer include the purpose of the file or directory in the summary. 
+
+
+code:
+async function chunkify_text(text, chunkSize) {
+    let startTime = performance.now();
+    //create the chunks based only on fixed size
+    // const chunks = [];
+    // for (let i = 0; i < text.length; i += chunkSize) {
+    //     chunks.push(text.slice(i, i + chunkSize));
+    // }
+    // return chunks;
+
+    //split based on the character '/n'
+    const splitter = new RecursiveCharacterTextSplitter({
+         //Set custom chunk size
+        chunk_size:chunkSize,
+        chunk_overlap:200,
+        //Use length of the text as the size measure
+        length_function: s => s.length,
+        //Use only "\n\n" as the separator
+        separators:['\n','\n\n','}',',',';','.']
+    });
+
+    const output = await splitter.createDocuments([text]);
+    const parsedOutput = output.map((value,i)=>(value.pageContent));
+    let endTime = performance.now();
+    console.log(`The size of the text is ${text.length} characters. The time of chunkify is ${(endTime - startTime)/1000} seconds`);
+    return parsedOutput;
+}
+/**
+ * 
+ * @param {string} text - the text to be summarized
+ * 
+ * 
+ * split the text into chunks and summarize them, and them summarize the summaries recursively. use fixed chunk size 3000 characters here. and the output size will be 5x compressed here
+ */
+async function do_summary(text) {
+    let startTime = performance.now();
+    let messages = [
+        { role: "system", content: prompt_summarize },
+        { role: "user", content: 'Here is the content:' }
+    ];
+    const jsonData = {
+        model: "gpt-3.5-turbo-16k",
+        messages: messages
+    };
+    if (text.length <= 3000) {
+        try {
+            //just summarize the actual text
+            messages[messages.length - 1].content += text;
+            // jsonData.max_tokens = Math.max(1, Math.ceil(text.length *2));
+            const completion = await openai.chat.completions.create(jsonData);
+            return completion.choices[0].message.content;
+        }
+        catch (error) {
+            console.error(`error in do_summary ${error || error.status}`);
+        }
+    }
+    try {
+
+        const chunks = await chunkify_text(text, 3000);
+        const promises = chunks.map(async (value, i) => {
+            return await do_summary(value);
+        });
+        const results = await Promise.allSettled(promises);
+        let successResults = results.filter((value, i) => { return value.status === "fulfilled" }).map((v, i) => { return JSON.stringify(v.value) });
+        const concatenated = successResults.join();
+        const summary = await do_summary(concatenated);
+        let endTime = performance.now();
+        console.log(`The text size is ${text.length} characters. The time of summary is ${(endTime - startTime)/1000} seconds`);
+        return summary;
+        //concatenated the previous summary to the current one
+        // const chunks = await chunkify_text(text, 3000);
+        // let summary = "";
+        // // const summaries = [];
+
+        // for (let i = 0; i < chunks.length; i++) {
+        //     const currentText = summary + chunks[i];
+        //     summary = await do_summary(currentText);
+        //     // summaries.push(summary);
+        //     // concatenatedSummaries += summary;
+        // }
+        // return summary;
+    }
+    catch (error) {
+        console.error(`error in do_summary ${error || error.status}`);
+    }
+}
+
+output:
+{
+  "path": "https://github.com/Felx-B/vscode-web",
+  "type": "dir",
+  "summary": "This directory serves as a hub for managing various types of content related to a project. 
+  It includes files for GitHub Actions workflows, testing, dependencies installation, building, and publishing. 
+  It also contains files like .gitignore for excluding specific files and directories, LICENSE for granting permissions and 
+  a demo for showcasing project capabilities. Additionally, it serves as a hub for configuring an alternate marketplace and 
+  managing the version control and compilation processes. It also includes a README.md file providing instructions for building 
+  a web version of VSCode. Moreover, it serves as a hub for demonstrating the \"Code Web\" application, including functionalities 
+  like cloning the VSCode repository.\n\nThis directory serves as a hub for multiple functionalities in the project. 
+  It includes tasks such as pattern matching, existence verification, managing project data, installing dependencies, compiling code, 
+  and managing file operations. Additionally, it includes the 'http.js' file, which sets up an express server, 
+  and the 'index.html' file, which configures and initializes the web application. 
+  The 'README.md' file provides comprehensive instructions and information for building a web version of VSCode.
+  \n\nThis directory serves as a central hub for multiple functionalities in the project. 
+  It manages tasks such as pattern matching, existence verification, and version control using gulp. 
+  The 'dist' directory is responsible for storing compiled files and is recreated as needed. 
+  The 'product.json' file contains application details and configurations. 
+  There are additional scripts like 'build' and 'prepare-demo' that highlight the project's capabilities. 
+  The directory also handles tasks related to SVG shapes manipulation, turn and seed operations management, 
+  and coordinates calculation for the project's demo. The 'extension.js' file oversees checks within the project.
+  \n\nThis directory serves as a central hub for managing various project tasks. 
+  It includes a configuration file, a workbench file, and files for handling product configuration and workspace determination. 
+  The 'extension.js' file handles checks, initialization, and includes necessary files in the 'dist' directory. 
+  The 'package.json' file is crucial in managing initialization, error handling, and the inclusion of necessary files 
+  in the 'dist' directory.\n\nThis directory serves as a hub for managing MIME type information, as well as installing and managing 
+  various package dependencies, including \"fs-extra,\" \"depd,\" \"safe-buffer,\" and \"content-type.\" 
+  It utilizes a package manager, such as Yarn, for these tasks. The \"extension.js\" file handles checks, initialization, 
+  and error handling for the web playground for VS Code. The \"vscode-web-playground\" directory offers a web playground for VS Code.
+   The \"package.json\" and \"product.json\" files specify project versions and configurations.",
+  "children": [
+    {
+      "path": ".github",
+      "type": "dir",
+      "summary": "This directory, \".github/workflows\", serves as a hub for managing GitHub Actions workflows. Specifically, the file \"npm-publish.yml\" contains a workflow that is triggered when a release is created. This workflow performs various tasks including running tests using node, installing dependencies using yarn, building the project, and finally publishing the package to GitHub Packages using npm and a specified NODE_AUTH_TOKEN.",
+      "children": [
+        {
+          "path": ".github/workflows",
+          "type": "dir",
+          "summary": "The file .github/workflows/npm-publish.yml contains a GitHub Actions workflow. This workflow is triggered when a release is created. It performs tests using node, installs dependencies using yarn, builds the project, and publishes the package to GitHub Packages using npm with the specified NODE_AUTH_TOKEN.",
+          "children": [
+            {
+              "path": ".github/workflows/npm-publish.yml",
+              "type": "file",
+              "summary": "The file is a GitHub Actions workflow that triggers tests using node and publishes a package to GitHub Packages when a release is created. It sets up the build environment, installs dependencies using yarn, builds the project, and finally publishes the package using npm with the specified NODE_AUTH_TOKEN."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": ".gitignore",
+      "type": "file",
+      "summary": "The directory contains various types of files and directories. These include log files, diagnostic reports, runtime data, coverage directories, dependency directories, cache directories, build outputs, and other project-specific files and directories. Specific files and directories include logs, diagnostic reports, coverage directories, build outputs, the demo directory with static files and code, favicon.ico, manifest.json, and playground.js."
+    },
+    {
+      "path": "LICENSE",
+      "type": "file",
+      "summary": "The file contains the MIT License, which grants permission to use, modify, distribute, and sell the software without any warranty. The license must be included in all copies or substantial portions of the software."
+    },
+    {
+      "path": "README.md",
+      "type": "file",
+      "summary": "This directory serves as a hub for building a web version of VSCode. It includes a StackBlitz sample, a simplified build process using the official compilation, and instructions on how to run the demo and sample projects. The project can be used to create a web file editor/reader by implementing a FileSystemProvider through extension. Additionally, proposed APIs like TextSearchProvider and FileSearchProvider can be utilized. It also provides information on configuring an alternate marketplace using the Open VSX Registry. To build from source, the same prerequisites as VSCode are required."
+    },
+    {
+      "path": "build.js",
+      "type": "file",
+      "summary": "The file clones the vscode repository from GitHub, using a specific version. It then checks if the \"node_modules\" directory does not exist, and installs the necessary dependencies using yarn. The file also copies the \"workbench.ts\" file to a specific location and compiles the code using gulp. Finally, it removes the existing \"dist\" directory, creates a new one, and copies the compiled files to the \"dist\" directory."
+    },
+    {
+      "path": "demo",
+      "type": "dir",
+      "summary": "This directory contains various files that collectively serve as a demo for the \"Code Web\" application. 
+      \n\nThe file 'http.js' sets up an express server that serves static files from the './demo' directory. 
+      The server listens on port 8080.\n\nThe file 'index.html' configures and initializes the web application. 
+      It includes HTML code with meta tags for mobile compatibility and disabling pinch zooming. 
+      It also includes links to icon and manifest files, as well as CSS stylesheets. 
+      The JavaScript section of the code sets up the configuration for the web application, 
+      including the base URL and paths for loading modules. Finally, the code includes multiple script tags for loading various JavaScript files related to the workbench and the application itself.\n\n
+      The file 'product.json' defines the configuration for the \"Code Web\" application. It specifies the name, data folder, version, and enabled APIs for the extension. 
+      The file also includes the folder URI and additional built-in extensions.",
+      "children": [
+        {
+          "path": "demo/http.js",
+          "type": "file",
+          "summary": "The file sets up an express server that serves static files from the './demo' directory. The server listens on port 8080."
+        },
+        {
+          "path": "demo/index.html",
+          "type": "file",
+          "summary": "The file contains HTML code responsible for configuring and initializing a web application. The code includes various meta tags for mobile compatibility and disabling pinch zooming. It also includes links to icon and manifest files, as well as CSS stylesheets. The JavaScript section of the code sets up the configuration for the web application, including the base URL and paths for loading modules. Finally, the code includes multiple script tags for loading various JavaScript files related to the workbench and the application itself."
+        },
+        {
+          "path": "demo/product.json",
+          "type": "file",
+          "summary": "The file defines the configuration for the \"Code Web\" application. It specifies the name, data folder, version, and enabled APIs for the extension. The file also includes the folder URI and additional builtin extensions."
+        }
+      ]
+    },
+    {
+      "path": "package.json",
+      "type": "file",
+      "summary": "The file 'vscode-web' is a version 1.83.1 of Visual Studio Code for the browser. It includes a description stating its purpose. The 'dist' directory contains the necessary files. There are several scripts provided, including 'build' which uses 'build.js', 'prepare-demo' which uses 'prepare-demo.js', and 'demo' which uses './demo/http.js'. The file is hosted on GitHub with a URL for bug reports. The project is licensed under MIT and has devDependencies on 'express' and 'fs-extra'."
+    },
+    {
+      "path": "prepare-demo.js",
+      "type": "file",
+      "summary": "The file clones the \"vscode-web-playground\" repository into the \"./demo/static/extensions/vscode-web-playground\" directory through a git clone command."
+    },
+    {
+      "path": "sample",
+      "type": "dir",
+      "summary": "This directory serves as a hub for managing various functionalities, including file operations, pattern matching, existence verification, and version control. It also includes a demo to showcase the project's capabilities. The directory contains files responsible for manipulating SVG shapes, managing turns and seed operations, calculating coordinates, handling checks and initializations, creating a server, and setting up a web page for a code editor. It also handles image file decoding and manages version control and compilation processes.\n\nThis directory serves as a hub for managing various aspects of the project and the product. It includes a configuration file called \"package.json\" that specifies project information and dependencies. The file \"extension.js\" handles checks, initialization, and error handling. The directory also manages multiple files and directories, such as 'file.xml', 'empty.txt', 'rnd.foo', 'UPPER.txt', 'folder', 'workspaces', and 'large'. The file \"build.js\" serves as a centralized hub for version control and compilation processes.\n\nThis directory serves as a hub for managing dependencies, executing scripts, and defining product configurations. The file \"build.js\" manages version control and compilation processes. The \"vscode-web-playground\" directory provides a web playground for VS Code. There are also scripts and devDependencies for project management. The \"package.json\" and \"product.json\" files specify project version, dependencies, and product configuration. The \"yarn.lock\" file in the \"sample\" directory organizes packages and versions.\n\nThe file provides a comprehensive listing and reference of multiple packages. It includes details such as version, dependencies, download URLs, and integrity values for packages like 'debug@2.6.9', 'depd@2.0.0', 'express@4.18.2', 'accepts', 'array-flatten', 'escape-html', and 'etag'. The file serves as a reference and resource for these packages.",
+      "children": [
+        {
+          "path": "sample/http.js",
+          "type": "file",
+          "summary": "The file uses the Express framework and the serve-static middleware to create a server that serves static files. The server listens on port 8080."
+        },
+        {
+          "path": "sample/index.html",
+          "type": "file",
+          "summary": "The file contains an HTML document that sets up the web page for a code editor. It includes meta tags for mobile compatibility and disables pinch zooming. The file also links to CSS and JavaScript files for the code editor functionality, and imports dependencies from the `node_modules` directory."
+        },
+        {
+          "path": "sample/myExt",
+          "type": "dir",
+          "summary": "This directory serves as a hub for managing various functionalities related to file operations, pattern matching, existence verification, and demonstrating the project's capabilities through a demo. It includes important files responsible for creating and manipulating SVG shapes, managing turns and seed operations, calculating coordinates, and assigning colors to seeds. The file \"extension.js\" handles checks, initializations, and error handling for the \"vscode\" module and a specific property within the \"t\" object. It also creates a Position object and attaches a diagnostic collection. The directory manages multiple files and directories such as 'file.xml', 'empty.txt', 'rnd.foo', 'UPPER.txt', 'folder', 'workspaces', and 'large'. 'build.js' within this directory serves as a centralized hub for managing version control, compilation processes, and demonstrating the project's capabilities through a demo. This directory is also responsible for decoding image files, raising ValueErrors under specific conditions, and performing operations with the gbkFile array. It serves as a hub for compiling, watching, and managing the project and contains multiple scripts and devDependencies for these purposes. Additionally, there is a file named \"vscode-web-playground\" that serves as a web playground for VS Code, contributing to the welcome views with debug and terminal functionalities, as well as defining a custom build script for task definitions that require a \"flavor\" property with options of \"32\" or \"64\".",
+          "children": [
+            {
+              "path": "sample/myExt/extension.js",
+              "type": "file",
+              "summary": "This directory serves as a hub for managing various file and directory operations. It includes files such as 'file.md' and 'file.xml'. One of the individual files within this directory exports a module function that performs checks and initializations. It verifies the presence of the 'vscode' module and a specific property within the 't' object. It also checks for the existence of a file named 'large.ts' and handles a specific problem by displaying an error message. Additionally, it creates a Position object and attaches a diagnostic collection to the activeTextEditor window based on the navigator type. The file includes a constructor function that manages and resolves tasks within the workspaceRoot. Finally, it defines a function named \"getTask\" with three parameters and includes a task creation function based on the provided parameters. This directory also manages various other files and directories, including 'file.xml', 'empty.txt', 'rnd.foo', and 'UPPER.txt'.\n\nThis directory serves as a central hub for managing various files and directories. It includes files such as 'file.xml', 'empty.txt', 'rnd.foo', and 'UPPER.txt', as well as directories named 'folder', 'workspaces', 'large', 'xyz', and 'abc'. It also includes a class called \"l\" that handles file operations. The directory serves as a hub for various functionalities related to file and directory manipulation, pattern matching, and other file-related operations. Users can perform tasks such as searching for parent directories, verifying existence, creating new files, renaming and deleting entries, updating modification time and size, and creating new directory entries. The directory includes files and directories such as 'empty.txt', 'rnd.foo', 'UPPER.txt', 'folder', 'workspaces', 'large', 'xyz', 'abc', and 'def'.\n\nThis directory serves as a hub for demonstrating the project's capabilities through a demo, managing version control, and compilation processes through build.js. It contains a class called \"Geometry.ts\" for creating and using SVG shapes. It also manages seed counts, turns, and seed management operations. The directory includes files and directories such as 'empty.txt', 'rnd.foo', 'UPPER.txt', 'folder', 'workspaces', 'large', 'xyz', 'abc', and 'def'. This directory also includes important files responsible for creating and manipulating SVG shapes. Additionally, it provides various functionalities for file operations, pattern matching, and verifying existence.\n\nThe directory contains code for managing turns and seed operations. It calculates coordinates and assigns colors to each seed. It also initializes classes for SeedCoords and DisplayPosition. The file within this directory decodes and returns an image file. If the variable human_notes is None, it generates a ValueError. It initializes the gbkFile array and adjusts the variables \"ringRem\" and \"seedCount\" based on certain conditions. The code also assigns values to \"tx\" and \"ty\"."
+            },
+            {
+              "path": "sample/myExt/package.json",
+              "type": "file",
+              "summary": "The file \"vscode-web-playground\" serves as a web playground for VS Code. It has a version of 0.0.13 and is published by vscode. The file has a private license and enables API proposals for file search and text search providers. The activation events for this file are \"onFileSystem:memfs\" and \"onDebug\". The file uses the \"./extension\" browser. It contributes to the welcome views by providing debug and terminal views. For task definitions, it defines a custom build script that requires a \"flavor\" property with the options of \"32\" or \"64\", and an optional \"flags\" property. The file also contains various scripts for compilation, watching, and prepublishing. It has devDependencies for \"@types/vscode\", \"ts-loader\", \"typescript\", \"webpack\", and \"webpack-cli\"."
+            }
+          ]
+        },
+        {
+          "path": "sample/package.json",
+          "type": "file",
+          "summary": "The file contains the metadata for a web editor project named \"web-editor\" with version 1.0.0. It has a script called \"sample\" that executes the \"http.js\" file using Node.js. The project has dependencies on the \"express\" and \"vscode-web\" packages."
+        },
+        {
+          "path": "sample/product.json",
+          "type": "file",
+          "summary": "The file defines the configuration for a product named \"VSCode Web Sample\". It includes various properties such as the short and long names, application name, data folder name, version, and extensions gallery details. The \"extensionsGallery\" property contains URLs for the service, item, and resource. Additionally, the \"extensionEnabledApiProposals\" property specifies the enabled API proposals for a specific extension. The file also includes information about the folder's URI, specifying the scheme and path. Furthermore, there is a list of additional builtin extensions, each with a scheme and path."
+        },
+        {
+          "path": "sample/yarn.lock",
+          "type": "file",
+          "summary": "This directory serves as a hub for managing and organizing various packages and their versions. It includes dependencies and pertinent details about packages like \"accepts,\" \"array-flatten,\" \"body-parser,\" and \"content-disposition,\" along with their dependencies. The directory contains information about specific packages such as \"cookie@0.5.0,\" \"debug@2.6.9,\" and \"depd@2.0.0,\" including their versions, download URLs, and SHA512 hashes for integrity verification. Additionally, it provides information about other packages like \"express\" with version 4.18.2 and dependencies on packages such as \"accepts,\" \"array-flatten,\" and \"body-parser.\" The directory also includes versions, download URLs, and integrity values for packages like \"escape-html\" and \"etag.\" Overall, it acts as a pivotal hub for managing the project's dependencies, versions, and integrity verification."
+        }
+      ]
+    },
+    {
+      "path": "tsconfig.json",
+      "type": "file",
+      "summary": "The file contains compiler options for the project, including module resolution, decorators, type checking, and code casing. It also includes a base URL and path mappings for the project. The \"include\" field specifies that only the \"workbench.ts\" file should be included in the compilation."
+    },
+    {
+      "path": "workbench.ts",
+      "type": "file",
+      "summary": "The file imports modules and creates a workbench. It checks for a product configuration object and if it doesn't exist, it fetches it from a JSON file. It also processes additional built-in extensions. It then determines the workspace based on the folder or workspace URI provided in the configuration. If a workspace exists, it creates a workspace provider. Finally, it creates a DOM element and initializes the workbench with the provided configurations."
+    },
+    {
+      "path": "yarn.lock",
+      "type": "file",
+      "summary": "This directory serves as a hub for managing the dependencies and versions of a Yarn project. It keeps track of package names, versions, and URLs, ensuring integrity and security through integrity hashes. Specific packages such as \"safe-buffer\" and \"content-type\" are included with their versions, URLs, and integrity hashes. The directory also manages packages like \"cookie\" and \"debug\" with their respective versions and resolved URLs.\n\nThis directory manages dependencies, ensuring package integrity. It includes files like \"finalhandler\" and \"forwarded\" that provide version information, resolved URLs, and dependencies for each package. SHA-512 hashes are also present for various dependencies such as \"fs-extra\" and \"depd\".\n\nThis directory contains files that provide information about various dependencies, including versions, resolved URLs, and integrity. Dependencies like \"depd\", \"inherits\", \"setprototypeof\", and \"safer-buffer\" are included, each verified by its SHA-512 hash.\n\nThis directory contains multiple files related to package dependencies, providing integrity and dependency information. Additionally, files like \"mime-db\" and \"mime-types\" specify MIME type information. Dependencies such as \"mime-db\" and \"mime@1.6.0\" are essential for the project's functionality and can be installed using a package manager like Yarn.\n\nThis directory contains multiple files that provide dependency information for various packages. The files specify versions, integrity values, and resolved URLs for different packages."
+    }
+  ]
+}
+         
