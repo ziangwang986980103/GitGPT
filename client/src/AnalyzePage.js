@@ -97,14 +97,14 @@ function AnalyzePage({ repoLink }) {
                         <h2>Directories</h2>
                         <ul>
                             {result.directories.map((dir, index) => (
-                                <li key={index}>{dir.name} - {dir.explanation}</li>
+                                <li key={index}>{dir.path} - {dir.summary}</li>
                             ))}
                         </ul>
 
                         <h2>Files</h2>
                         <ul>
                             {result.files.map((file, index) => (
-                                <li key={index}>{file.name} - {file.explanation}</li>
+                                <li key={index}>{file.path} - {file.summary}</li>
                             ))}
                         </ul>
                     </div>

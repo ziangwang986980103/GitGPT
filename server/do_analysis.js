@@ -1,3 +1,14 @@
+import fs from "fs";
+import { Octokit } from "@octokit/rest";
+import { process } from './env.js';
+import prompt_summarize from './Prompts/gpt_summarize.js';
+import OpenAI, { NotFoundError } from 'openai';
+const octokit = new Octokit({ auth: process.env.GITHUB_PAT });
+const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API
+});
+import { RecursiveCharacterTextSplitter } from "langchain/text_splitter"
+
 function chunkify_text(text, chunkSize) {
     let startTime = performance.now();
     // create the chunks based only on fixed size
@@ -190,4 +201,4 @@ async function recursive_analysis(item, owner, repo) {
     }
 }
 
-export default do_analysis;
+export {do_analysis,do_summary};
