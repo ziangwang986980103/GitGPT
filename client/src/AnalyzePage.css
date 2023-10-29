@@ -1,0 +1,43 @@
+
+
+body {
+    font-family: 'Arial', sans-serif;
+    background-color: #F7F7F7;
+    padding: 20px;
+    padding-bottom: 70px;
+    /* Adjusted padding to accommodate the height of the Inputbox */
+}
+
+.message {
+    padding: 8px 0;
+    width: 60%;
+    margin: 5px auto;
+    border: none;
+    box-sizing: border-box;
+    /* To ensure padding and border don't affect total width */
+}
+
+.message p {
+    margin: 0;
+    word-wrap: break-word;
+    background-color: transparent;
+    width: 100%;
+    padding: 3px 0;
+}
+
+.message.question p {
+    background-color: #FFFFFF;
+    padding: 5px 10px;
+    border-radius: 0;
+}
+
+.inputbox-container {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    padding: 10px;
+    box-sizing: border-box;
+    background-color: #F7F7F7;
+    z-index: 100;
+}

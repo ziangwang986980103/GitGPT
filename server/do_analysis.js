@@ -18,7 +18,7 @@ function chunkify_text(text, chunkSize) {
         chunks.push(text.slice(i, i + chunkSize));
     }
     let endTime = performance.now();
-    console.log(`The size of the text is ${text.length} characters. The time of chunkify is ${(endTime - startTime) / 1000} seconds`);
+    // console.log(`The size of the text is ${text.length} characters. The time of chunkify is ${(endTime - startTime) / 1000} seconds`);
     return chunks;
 
     //split based on the character '/n'
@@ -55,7 +55,7 @@ async function do_summary(text) {
         model: "gpt-3.5-turbo-16k",
         messages: messages
     };
-    if (text.length <= 8000) {
+    if (text.length <= 16000) {
         try {
             //just summarize the actual text
             messages[messages.length - 1].content += text;
@@ -69,7 +69,7 @@ async function do_summary(text) {
     }else{
         try {
 
-            const chunks = await chunkify_text(text, 8000);
+            const chunks = await chunkify_text(text, 16000);
             const promises = chunks.map(async (value, i) => {
                 return await do_summary(value);
             });
@@ -78,7 +78,7 @@ async function do_summary(text) {
             const concatenated = successResults.join();
             const summary = await do_summary(concatenated);
             let endTime = performance.now();
-            console.log(`The text size is ${text.length} characters. The time of summary is ${(endTime - startTime) / 1000} seconds`);
+            // console.log(`The text size is ${text.length} characters. The time of summary is ${(endTime - startTime) / 1000} seconds`);
             return summary;
             //concatenated the previous summary to the current one
             // const chunks = await chunkify_text(text, 3000);
@@ -105,7 +105,11 @@ async function do_summary(text) {
  * This function will recursive analyze the sub-directories/files of the current path, and then summarize them to get the analysis of the current path.
  * @returns {object} repo_analysis -a object containing the analysis of the current repo in the form {path:string, type: string(dir,file), analysis: string, children:[array of the sub-directories/files analysis object]}. The children will be empty if it's a file
  */
-async function do_analysis(repoLink, owner, repo) {
+async function do_analysis(repoLink, owner, repo,verbose) {
+    let startTime = performance.now();
+    if (verbose) {
+        console.log(`Processing the directory: ${repoLink}`);
+    }
     let repository = await octokit.request('GET /repos/{owner}/{repo}', {
         owner: owner,
         repo: repo,
@@ -125,7 +129,7 @@ async function do_analysis(repoLink, owner, repo) {
     //the paths to and type of the root's directories and files
     let paths = result.data.tree.map((value, index) => ({ path: value.path, type: value.type }));
     let promises = paths.map(async item => {
-        return await recursive_analysis(item, owner, repo);
+        return await recursive_analysis(item, owner, repo,verbose);
     });
 
     //summarize the analysis
@@ -140,8 +144,13 @@ async function do_analysis(repoLink, owner, repo) {
         return item.value;  // or whatever transformation you want to apply
     });
     // console.log("children: ",children);
-    console.log("concatenated in do_analysis: ", concatenated);
+    // console.log("concatenated in do_analysis: ", concatenated);
+    
     let summary = await do_summary(concatenated);
+    if (verbose) {
+        let endTime = performance.now();
+        console.log(`Finish Processing the directory: ${repoLink}. The processing takes ${(endTime - startTime) / 1000} seconds.`);
+    }
     return {
         path: repoLink,
         type: "dir",
@@ -154,13 +163,21 @@ async function do_analysis(repoLink, owner, repo) {
  * 
  * @param {object} item - {path:string,type:string}
  */
-async function recursive_analysis(item, owner, repo) {
+async function recursive_analysis(item, owner, repo,verbose) {
     //if the file should be ignored, we just do summary based on its path instead of content
     if(item.type === "blob" || item.type === "file"){
         for(let m =0; m < file_to_be_ignored.length; ++m){
             if(item.path.includes(file_to_be_ignored[m])){
+                console.log(`The file ${item.path} is ignored for content analysis. Its analysis is based solely on path name.`);
+                let startTime = performance.now();
+                if(verbose){
+                    console.log(`Processing the file: ${item.path}`);
+                }
                 const summary = await do_summary(item.path);
-                console.log(`The file ${item.path} is ignored for content analysis`);
+                if (verbose) {
+                    let endTime = performance.now();
+                    console.log(`Finish Processing the file: ${item.path}. The processing takes ${(endTime - startTime)/1000} seconds.`);
+                }
                 return {
                     path: item.path,
                     type:"file",
@@ -183,7 +200,15 @@ async function recursive_analysis(item, owner, repo) {
         const decodedContent = Buffer.from(response.data.content, 'base64').toString('utf-8');
         // const content = return await file_analysis(item.path, decodedContent);
         //TODO: add the name of the file to it as context
+        let startTime = performance.now();
+        if(verbose){
+            console.log(`Processing the file: ${item.path}`);
+        }
         const summary = await do_summary(decodedContent);
+        if (verbose) {
+            let endTime = performance.now();
+            console.log(`Finish Processing the file: ${item.path}. The processing takes ${(endTime - startTime) / 1000} seconds.`);
+        }
         return {
             path: item.path,
             type: "file",
@@ -191,8 +216,12 @@ async function recursive_analysis(item, owner, repo) {
         }
     }
     else {
+        let startTime = performance.now();
+        if (verbose) {
+            console.log(`Processing the directory: ${item.path}`);
+        }
         const promises = response.data.map(async (value, i) => {
-            return await recursive_analysis({ path: value.path, type: value.type }, owner, repo);
+            return await recursive_analysis({ path: value.path, type: value.type }, owner, repo,true);
         });
         const results = await Promise.allSettled(promises);
         let concatenated = "";
@@ -205,9 +234,13 @@ async function recursive_analysis(item, owner, repo) {
             return item.value;  // or whatever transformation you want to apply
         });
         // console.log("parsedResults:",parseResults);
-        console.log("concatenated:", concatenated);
+        // console.log("concatenated:", concatenated);
 
         let summary = await do_summary(concatenated);
+        if (verbose) {
+            let endTime = performance.now();
+            console.log(`Finish Processing the directory: ${item.path}. The processing takes ${(endTime - startTime) / 1000} seconds.`);
+        }
         return {
             path: item.path,
             type: "dir",

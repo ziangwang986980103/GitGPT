@@ -1,0 +1,28 @@
+.chatgpt-input-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 10px;
+    border-top: 1px solid #dcdcdc;
+    background-color: #f9f9f9;
+}
+
+.chatgpt-input {
+    width: 100%;
+    padding: 10px 15px;
+    border-radius: 20px;
+    border: 1px solid #dcdcdc;
+    outline: none;
+    font-size: 16px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: border 0.3s, box-shadow 0.3s;
+    border-radius: 8px;
+    /* Adjust this value for the desired corner roundness */
+    height: 40px;
+    /* Adjust this value for the desired height */
+}
+
+.chatgpt-input:focus {
+    border-color: #aaa;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}

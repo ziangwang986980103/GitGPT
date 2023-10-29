@@ -175,8 +175,9 @@ app.post("/api/retrieve-code",async (req,res)=>{
         let repoAnalysis = await Repo.findOne({ path: repoLink });
         if(!repoAnalysis){
             // res.json({sessionId:sessionId,message:"This is the first time I have seen this repo. I will process it now. It may take some time..."});
+
             const beginTime = performance.now();
-            repoAnalysis = await do_analysis(repoLink, owner, repo);
+            repoAnalysis = await do_analysis(repoLink, owner, repo,true);
             const endTime = performance.now();
             console.log(repoAnalysis);
             console.log("successfully do the repo_analysis");
@@ -304,9 +305,9 @@ async function get_ai_response(sessionId, model = CHAT_MODEL,function_call){
             function_call:function_call
         });
         // Special case for 'length'
-        if (response.choices[0].finish_reason === 'length') {
-            throw new Error('Finish reason was length (maximum context length)');
-        }
+        // if (response.choices[0].finish_reason === 'length') {
+        //     throw new Error('Finish reason was length (maximum context length)');
+        // }
 
         // Catches for soft errors
         if (!['stop', 'function_call'].includes(response.choices[0].finish_reason)) {
@@ -363,7 +364,7 @@ async function database_search(json_object){
         helper_search(paths, results, summary_object);
         return results;
     }catch(error){
-        console.log(`Errror in database search function: ${error}`);
+        console.log(`Error in database search function: ${error}`);
         return {};
     }
 }
