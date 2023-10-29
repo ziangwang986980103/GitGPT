@@ -20,6 +20,8 @@ let functions = [
             }
         }
     },
+    
+
     {
         "name":"code_search",
         "description":"search the code of files from a github repo",

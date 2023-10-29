@@ -1,0 +1,366 @@
+{
+  "path": "https://github.com/dependents/node-dependency-tree",
+  "type": "dir",
+  "summary": "The file \".c8rc.json\" is responsible for configuring the reporter settings to generate various reports.\nThe file \".editorconfig\" provides editor configuration settings.\nThe file \".gitattributes\" enforces the use of Unix newlines.\nThe directory \"./github\" contains configuration files and workflows for continuous integration, CodeQL analysis, and linting.\n
+  The file \".gitignore\" contains a list of files and directories to be ignored by Git.\nThe file \".mocharc.json\" contains configuration settings for Mocha testing.\n
+  The file \".npmrc\" indicates the version of the lockfile.\nThe file \"LICENSE\" contains licensing information for the project.\nThe file \"README.md\" provides information about the \"dependency-tree\" module.\n
+  The file \"bin/cli.js\" is a Node.js script that creates a command-line interface.\nThe file \"index.d.ts\" contains type and interface definitions.\n
+  The file \"index.js\" recursively traverses the dependency tree.\nThe file \"lib/config.js\" exports a class called \"Config\".\nThe file \"package-lock.json\" contains dependency and version information.\nThe file \"package.json\" 
+  provides information about the \"dependency-tree\" module.\nThis directory contains a demo of the project and manages version control and compilation processes through the \"build.js\" file.\nThe directory \"test\" contains files for demonstrating the project's capabilities and testing.\nThe file \"d.js\" checks if a directory named \"node_modules\" does not exist.\nThe file \"e.js\" checks if a directory named \"node_modules\" does not exist.\nThe file \"f.js\" raises a ValueError if the variable 'human_notes' is None.\nThis directory contains code that verifies the non-existence of a directory named \"node_modules\".\nThe directory located at 'random/a/' contains the file \"yarn.lock\".\nThe file \"g.js\" contains a function that checks if a directory named \"node_modules\" does not exist.\nThis directory serves as a hub for demonstrating the project's capabilities through a demo, as well as managing the project’s version control and compilation processes through build.js.\nThe \"src\" directory contains the source code of the project.\nThe file \"entrypoint.ts\" imports the 'theAnswer' variable from the 'required' module.\nThe file \"required.d.ts\" exports a constant variable named \"theAnswer\" of type number.\nThe file \"required.js\" exports an object containing a property named \"theAnswer\" with a value of 42.\nThe file \"a.js\" imports multiple modules.\nThe code in this directory focuses on testing the dependencyTree function and covers various scenarios and functionalities.\nThe file \"webpack.config.js\" exports a configuration object for webpack.",
+  "children": [
+    {
+      "path": ".c8rc.json",
+      "type": "file",
+      "summary": "The file configures the reporter settings for generating an HTML report, an lcov report, and a text report."
+    },
+    {
+      "path": ".deprc",
+      "type": "file",
+      "summary": "The directory \"./\" serves as the root directory for the project."
+    },
+    {
+      "path": ".editorconfig",
+      "type": "file",
+      "summary": "The file provides configuration settings for the editor, establishing the use of UTF-8 encoding, using LF as the line ending, a 2-space indentation style, and ensuring the presence of a final newline character while removing any trailing whitespace."
+    },
+    {
+      "path": ".gitattributes",
+      "type": "file",
+      "summary": "The file enforces the use of Unix newlines by setting the line ending configuration to \"lf\"."
+    },
+    {
+      "path": ".github",
+      "type": "dir",
+      "summary": "This directory (\"./github/codeql\") contains a configuration file called \"CodeQL config\" that is used to specify the paths to be ignored by CodeQL. In this case, the file ignores the \"test/fixtures/**\" path.\n\nThe file \"./github/dependabot.yml\" contains version information and updates for a package ecosystem called \"github-actions\". These updates are scheduled to occur monthly.\n\nThis directory (\"./github/workflows\") contains three files that define GitHub Actions workflows. The file named \"CI\" specifies triggers and a job called \"test\" that includes steps for cloning the repository, setting up Node.js, installing dependencies, and running unit tests. The file named \"CodeQL\" specifies triggers and a job called \"analyze\" that includes steps for cloning the repository, initializing CodeQL, autobuilding the project, and performing CodeQL analysis for JavaScript. The file named \"lint\" sets up a linting job that runs on Ubuntu, cloning the repository, setting up Node.js, installing dependencies, and running a linting command.\n\nOverall, this directory serves as a hub for managing various workflows, including continuous integration, CodeQL analysis, and linting, each with its own specific configuration and set of steps.",
+      "children": [
+        {
+          "path": ".github/codeql",
+          "type": "dir",
+          "summary": "The file \"CodeQL config\" is a configuration file that specifies paths to be ignored by CodeQL. Specifically, it ignores the \"test/fixtures/**\" path.",
+          "children": [
+            {
+              "path": ".github/codeql/codeql-config.yml",
+              "type": "file",
+              "summary": "The file \"CodeQL config\" is a configuration file that specifies paths that should be ignored by CodeQL. In this case, the \"test/fixtures/**\" path is ignored."
+            }
+          ]
+        },
+        {
+          "path": ".github/dependabot.yml",
+          "type": "file",
+          "summary": "The file contains version information and updates for a package ecosystem called \"github-actions\". The updates are scheduled to occur monthly."
+        },
+        {
+          "path": ".github/workflows",
+          "type": "dir",
+          "summary": "This directory contains three files that define GitHub Actions workflows for continuous integration, CodeQL analysis, and linting. The file named \"CI\" specifies triggers and a job called \"test\" that includes steps for cloning the repository, setting up Node.js, installing dependencies, and running unit tests. The file named \"CodeQL\" specifies triggers and a job called \"analyze\" that includes steps for cloning the repository, initializing CodeQL, autobuilding the project, and performing CodeQL analysis for JavaScript. The file named \"lint\" sets up a linting job that runs on Ubuntu, cloning the repository, setting up Node.js, installing dependencies, and running a linting command.",
+          "children": [
+            {
+              "path": ".github/workflows/ci.yml",
+              "type": "file",
+              "summary": "The file named \"CI\" contains a GitHub Actions workflow for continuous integration. It specifies the triggers for when the workflow should run, such as when there is a push to any branch except for \"dependabot/**\" or when there is a pull request. The workflow consists of a single job called \"test\", which runs on different operating systems and Node.js versions. The job includes steps for cloning the repository, setting up Node.js, installing npm dependencies, and running unit tests."
+            },
+            {
+              "path": ".github/workflows/codeql.yml",
+              "type": "file",
+              "summary": "The file named \"CodeQL\" contains a workflow configuration that specifies the events that trigger the workflow. The workflow includes jobs that are run on the \"ubuntu-latest\" environment. The \"analyze\" job is defined and it consists of several steps. These steps involve cloning the repository, initializing CodeQL with a configuration file, autobuilding the project, and performing CodeQL analysis specifically for the JavaScript language."
+            },
+            {
+              "path": ".github/workflows/lint.yml",
+              "type": "file",
+              "summary": "The file sets up a linting job that runs on Ubuntu. It clones the repository, sets up Node.js with a specific version, installs npm dependencies, and then runs a linting command."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": ".gitignore",
+      "type": "file",
+      "summary": "The file .gitignore contains a list of files and directories that should be ignored by Git when tracking changes in a project."
+    },
+    {
+      "path": ".mocharc.json",
+      "type": "file",
+      "summary": "The file contains a configuration that includes various settings such as disabling memory leaks checks, setting a timeout of 10000 milliseconds, enabling the throw of deprecation warnings, tracing deprecation warnings, tracing warnings, and enabling strict mode."
+    },
+    {
+      "path": ".npmrc",
+      "type": "file",
+      "summary": "The file indicates that the lockfile version is 2."
+    },
+    {
+      "path": "LICENSE",
+      "type": "file",
+      "summary": "The file LICENSE contains the licensing information for the project."
+    },
+    {
+      "path": "README.md",
+      "type": "file",
+      "summary": "The file 'dependency-tree' is a module that retrieves the dependency tree of a module. It supports multiple programming languages and can be installed using npm. The module resolves declared dependencies by mapping absolute filepaths and provides options for configuration and filtering. It can be used programmatically or through a command-line interface.\n\nThe file fig.json is located in the path/to/a/file."
+    },
+    {
+      "path": "bin",
+      "type": "dir",
+      "summary": "The file 'bin/cli.js' is a Node.js script that utilizes the 'commander' library to create a command-line interface for generating a dependency tree. It relies on 'index.js', 'package.json', and other dependencies. The script parses command-line options, including the filename, directory, requirejs config, webpack config, typescript config, and list form. Depending on the options provided, it will either generate a dependency tree in JSON format or output the tree in list form.",
+      "children": [
+        {
+          "path": "bin/cli.js",
+          "type": "file",
+          "summary": "The file is a Node.js script that uses the 'commander' library to create a command-line interface for generating a dependency tree. The script requires the 'index.js', 'package.json', and other dependencies. It parses command-line options such as the filename, directory, requirejs config, webpack config, typescript config, and list form. Based on the options, it either generates a dependency tree in JSON format or outputs the list form of the tree."
+        }
+      ]
+    },
+    {
+      "path": "index.d.ts",
+      "type": "file",
+      "summary": "The file consists of a declaration of a namespace called \"dependencyTree\". It includes several interface and type definitions, such as \"TreeInnerNode\", \"Tree\", and \"Options\". The \"Options\" interface includes various properties like \"filename\", \"directory\", \"visited\", \"nonExistent\", and more. The namespace also includes a function called \"toList\" which takes an object of type \"Options\" and returns an array of strings. Another function called \"_getDependencies\" is defined, which takes an object of type \"Config\" and returns an array of strings. Finally, there is a function declaration called \"dependencyTree\" which takes an object of type \"Options\" and returns a value of type \"Tree\". The module exports the \"dependencyTree\" function."
+    },
+    {
+      "path": "index.js",
+      "type": "file",
+      "summary": "The file recursively traverses the entire dependency tree to find all unique visited nodes. 
+      It takes in various options such as the filename of the module, the directory containing JS files, 
+      and paths to requirejs, webpack, and node_modules configurations. It returns a tree object or list of absolute 
+      file paths depending on the options provided. The file also includes helper functions for getting dependencies 
+      and traversing the dependency tree."
+    },
+    {
+      "path": "lib",
+      "type": "dir",
+      "summary": "The file \"lib/config.js\" is a JavaScript module that exports a class called \"Config\". The class has a constructor that takes in an options object with various properties such as \"filename\", \"directory\", \"visited\", \"nonExistent\", etc. It performs validation checks on the required properties and throws errors if they are not provided or do not meet the expected types. The constructor also handles the parsing of a TypeScript configuration file if provided, using the \"typescript\" module. It resolves the provided filename using the \"path\" and \"process\" modules and logs debug information using the \"util\" module. Additionally, the class provides a \"clone\" method that returns a new instance of the \"Config\" class with the same options.",
+      "children": [
+        {
+          "path": "lib/config.js",
+          "type": "file",
+          "summary": "The file is a JavaScript module that exports a class called \"Config\". The class has a constructor that takes in an options object, with various properties such as \"filename\", \"directory\", \"visited\", \"nonExistent\", etc. It performs validation checks on the required properties and throws errors if they are not provided or do not meet the expected types. \n\nThe constructor also handles the parsing of a TypeScript configuration file if provided, using the \"typescript\" module. It resolves the provided filename using the \"path\" and \"process\" modules and logs debug information using the \"util\" module. \n\nThe class also provides a \"clone\" method that returns a new instance of the \"Config\" class with the same options."
+        }
+      ]
+    },
+    {
+      "path": "package-lock.json",
+      "type": "file",
+      "summary": "The file package-lock.json contains information about the dependencies and their versions for an npm package. It is automatically generated and used by npm to ensure that the correct versions of dependencies are installed."
+    },
+    {
+      "path": "package.json",
+      "type": "file",
+      "summary": "The file \"dependency-tree\" is a module that provides functionality to retrieve the dependency tree of a module. It has a main file \"index.js\" and a types definition file \"index.d.ts\". The module has a bin file \"cli.js\" which can be executed using the command \"dependency-tree\". It also contains various scripts such as linting, fixing, and testing. The module has dependencies on \"commander\", \"filing-cabinet\", \"precinct\", and \"typescript\". It also has dev dependencies for testing purposes. The module follows specific rules specified in the \"xo\" configuration."
+    },
+    {
+      "path": "test",
+      "type": "dir",
+      "summary": "This directory serves as a hub for demonstrating the project's capabilities through a demo and managing the project's version control and compilation processes through build.js. It contains a mixture of TypeScript and JavaScript files. The file 'b.ts' exports a default function that logs 'hi' to the console. The file 'a.js' imports the function 'b' from 'b.js' and exports a function 'a' that logs 'a' to the console and calls 'b'. The file '.tsconfig' contains the compiler options configuration for the project. This directory also contains three files that define modules and their dependencies. 'a.js' requires modules 'b' and 'c' and returns the string 'cool' when executed. 'b.js' imports module 'c' and returns it. 'c.js' defines an empty JavaScript object. The file 'test/fixtures/commonjs/a.js' requires two modules, 'b' and 'c', using relative paths. The file 'test/fixtures/commonjs/b.js' exports an empty object and imports the 'path' module. The file 'test/fixtures/commonjs/c.js' exports an empty module and imports the 'fs' module. The file \"a.js\" requires the modules 'b' and 'c' from the current directory. The file \"b.js\" requires the modules 'd' and 'e' from the current directory. The file \"c.js\" imports two modules, 'f' and 'g', from the current directory. The file \"d.js\" checks if a directory named \"node_modules\" does not exist. The file \"e.js\" checks if a directory named \"node_modules\" does not exist. The file \"f.js\" raises a ValueError if the variable 'human_notes' is None. The directory contains code that verifies the non-existence of a directory named \"node_modules\". The file is located in the 'random/a/' directory and is named 'yarn.lock'. The file \"g.js\" contains a function that checks if a directory named \"node_modules\" does not exist. This directory contains a demo of the project, the file builds the repository and compiles the code, and the \"src\" directory contains the source code of the project. The file is located in the 'random/a/' directory and is named 'yarn.lock'. The file \"entrypoint.ts\" imports the 'theAnswer' variable from the 'required' module. The file \"required.d.ts\" exports a constant variable named \"theAnswer\" of type number. The file \"required.js\" exports an object containing a property named \"theAnswer\" with a value of 42. The file \"a.js\" imports the 'path', 'debug', and 'not-real' modules. This directory contains code for testing the dependencyTree function. It includes multiple code snippets and test cases that cover different scenarios and functionalities, such as resolving files with jsx or es7, handling es6 files with lazy requires or dynamic imports, and testing various module formats like amd, commonjs, es6, sass, stylus, less, and typescript. It also includes a test for dependencyTree.toList, which returns a post-order list form of the dependency tree. The code is organized into describe blocks, with each focusing on a specific module or functionality. These blocks include beforeEach and it statements that set up and perform tests, checking module dependencies, file inclusion in the dependency tree, and the behavior of certain configuration settings. Additionally, the code checks for the existence of a directory named 'onlyRealDeps' and performs operations on the files within it, while ensuring that certain files do not reference non-existent modules.",
+      "children": [
+        {
+          "path": "test/fixtures",
+          "type": "dir",
+          "summary": "This directory contains three files that define modules and their dependencies. 'a.js' requires modules 'b' and 'c' and returns the string 'cool' when executed. 'b.js' imports module 'c' and returns it. 'c.js' defines an empty JavaScript object.\n\nThe file 'test/fixtures/commonjs/a.js' requires two modules, 'b' and 'c', using relative paths. The file 'test/fixtures/commonjs/b.js' exports an empty object and imports the 'path' module. The file 'test/fixtures/commonjs/c.js' exports an empty module and imports the 'fs' module.\n\nThe file \"a.js\" requires the modules 'b' and 'c' from the current directory. The file \"b.js\" requires the modules 'd' and 'e' from the current directory. The file \"c.js\" imports two modules, 'f' and 'g', from the current directory. The file \"d.js\" checks if a directory named \"node_modules\" does not exist. The file \"e.js\" checks if a directory named \"node_modules\" does not exist. The file \"f.js\" raises a ValueError if the variable 'human_notes' is None. The directory contains code that verifies the non-existence of a directory named \"node_modules\". This directory serves as a hub for demonstrating the project's capabilities through a demo and managing the project's version control and compilation processes through build.js. The file is located in the 'random/a/' directory and is named 'yarn.lock'. The file \"g.js\" contains a function that checks if a directory named \"node_modules\" does not exist. This directory contains a demo of the project, the file builds the repository and compiles the code, and the \"src\" directory contains the source code of the project. The file is located in the 'random/a/' directory and is named 'yarn.lock'.\n\nThe file 'entrypoint.ts' imports the 'theAnswer' variable from the 'required' module. The file 'required.d.ts' exports a constant variable named \"theAnswer\" of type number. The file 'required.js' exports an object containing a property named \"theAnswer\" with a value of 42.\n\nThe file 'a.js' imports the 'path', 'debug', and 'not-real' modules.\n\nThis directory contains a mixture of TypeScript and JavaScript files. The file 'b.ts' exports a default function that logs 'hi' to the console. The file 'a.js' imports the function 'b' from 'b.js' and exports a function 'a' that logs 'a' to the console and calls 'b'. The file '.tsconfig' contains the compiler options configuration for the project.\n\nThe file 'aliased.js' imports the module 'F' using the require() function and assigns it to the variable foo. The file 'unaliased.js' imports the 'filing-cabinet' module using the require function.",
+          "children": [
+            {
+              "path": "test/fixtures/amd",
+              "type": "dir",
+              "summary": "This directory contains three files that define modules and their dependencies. 'a.js' requires modules 'b' and 'c' and returns the string 'cool' when executed. 'b.js' imports module 'c' and returns it. 'c.js' defines an empty JavaScript object.",
+              "children": [
+                {
+                  "path": "test/fixtures/amd/a.js",
+                  "type": "file",
+                  "summary": "The file defines a module that requires two other modules, 'b' and 'c'. The module returns the string 'cool' when executed."
+                },
+                {
+                  "path": "test/fixtures/amd/b.js",
+                  "type": "file",
+                  "summary": "The file defines a module and imports another module 'c'. It returns the imported module 'c'."
+                },
+                {
+                  "path": "test/fixtures/amd/c.js",
+                  "type": "file",
+                  "summary": "The file defines an empty JavaScript object."
+                }
+              ]
+            },
+            {
+              "path": "test/fixtures/commonjs",
+              "type": "dir",
+              "summary": "The file 'test/fixtures/commonjs/a.js' requires two modules, 'b' and 'c', using relative paths. \nThe file 'test/fixtures/commonjs/b.js' exports an empty object and imports the 'path' module. \nThe file 'test/fixtures/commonjs/c.js' exports an empty module and imports the 'fs' module.",
+              "children": [
+                {
+                  "path": "test/fixtures/commonjs/a.js",
+                  "type": "file",
+                  "summary": "The file requires two modules, 'b' and 'c', using relative paths."
+                },
+                {
+                  "path": "test/fixtures/commonjs/b.js",
+                  "type": "file",
+                  "summary": "The file exports an empty object and imports the 'path' module."
+                },
+                {
+                  "path": "test/fixtures/commonjs/c.js",
+                  "type": "file",
+                  "summary": "The file exports an empty module and imports the 'fs' module."
+                }
+              ]
+            },
+            {
+              "path": "test/fixtures/extended",
+              "type": "dir",
+              "summary": "The file \"a.js\" requires the modules 'b' and 'c' from the current directory.\n\nThe file \"b.js\" requires the modules 'd' and 'e' from the current directory.\n\nThe file \"c.js\" imports two modules, 'f' and 'g', from the current directory.\n\nThe file \"d.js\" checks if a directory named \"node_modules\" does not exist.\n\nThe file \"e.js\" checks if a directory named \"node_modules\" does not exist.\n\nThe file \"f.js\" raises a ValueError if the variable 'human_notes' is None. The directory contains code that verifies the non-existence of a directory named \"node_modules\". This directory serves as a hub for demonstrating the project's capabilities through a demo and managing the project's version control and compilation processes through build.js. The file is located in the 'random/a/' directory and is named 'yarn.lock'.\n\nThe file \"g.js\" contains a function that checks if a directory named \"node_modules\" does not exist. This directory contains a demo of the project, the file builds the repository and compiles the code, and the \"src\" directory contains the source code of the project. The file is located in the 'random/a/' directory and is named 'yarn.lock'.",
+              "children": [
+                {
+                  "path": "test/fixtures/extended/a.js",
+                  "type": "file",
+                  "summary": "The file requires the modules 'b' and 'c'."
+                },
+                {
+                  "path": "test/fixtures/extended/b.js",
+                  "type": "file",
+                  "summary": "The file requires the modules 'd' and 'e' from the current directory."
+                },
+                {
+                  "path": "test/fixtures/extended/c.js",
+                  "type": "file",
+                  "summary": "The file imports two modules, 'f' and 'g', from the current directory."
+                },
+                {
+                  "path": "test/fixtures/extended/d.js",
+                  "type": "file",
+                  "summary": "1. Code Snippet:\n   if human_notes is None: raise ValueError(human_notes)\n\n2. File Summary:\n   The code checks if a directory named \"node_modules\" does not exist.\n\n3. Multiple Summaries:\n   {path: 'demo', type: 'dir', summary: 'This directory contains a demo of the project'}, \n   {path: 'build.js', type: 'file', summary: 'The code clones the repository, compiles the code.'}\n\n4. Path:\n   random/a/yarn.lock"
+                },
+                {
+                  "path": "test/fixtures/extended/e.js",
+                  "type": "file",
+                  "summary": "1. Code Snippet:\n```\nif human_notes is None:\n    raise ValueError(human_notes)\n```\n2. File Summary:\n```\nThe code checks if a directory named \"node_modules\" does not exist.\n```\n3. Multiple File/Directory Summaries:\n```\n{path: 'demo', type: 'dir', summary: 'This directory contains a demo of the project'}, \n{path: 'build.js', type:'file', summary: 'The code clones the repository, compiles the code.'}\n```\n\n4. Path:\n```\nrandom/a/yarn.lock\n```\n\nPlease provide individual summaries for each of these contents."
+                },
+                {
+                  "path": "test/fixtures/extended/f.js",
+                  "type": "file",
+                  "summary": "1. Code Snippet:\n   - Input: 'if human_notes is None: raise ValueError(human_notes)'\n   - Output: The code raises a ValueError if the variable 'human_notes' is None.\n\n2. File/Directory Summary:\n   - Input: 'the code checks if a directory named \"node_modules\" does not exist.'\n   - Output: The directory contains code that verifies the non-existence of a directory named \"node_modules\".\n\n3. Multiple Summaries of Various Files/Directories:\n   - Input: \n     - {path: 'demo', type: 'dir', summary: 'This directory contains a demo of the project'}\n     - {path: 'build.js', type: 'file', summary: 'The code clones the repository, compiles the code.'}\n   - Output: This directory serves as a hub for demonstrating the project's capabilities through a demo and managing the project's version control and compilation processes through build.js.\n\n4. Path:\n   - Input: \"random/a/yarn.lock\"\n   - Output: The file is located in the 'random/a/' directory and is named 'yarn.lock'."
+                },
+                {
+                  "path": "test/fixtures/extended/g.js",
+                  "type": "file",
+                  "summary": "1. Code Snippet:\nif human_notes is None: \n    raise ValueError(human_notes)\n\n2. File Summary:\nThis file contains a function that checks if a directory named \"node_modules\" does not exist.\n\n3. Multiple Summaries:\n{path: 'demo', type: 'dir', summary: 'This directory contains a demo of the project.'}\n{path: 'build.js', type: 'file', summary: 'The code clones the repository, compiles the code.'}\n{path: 'src', type: 'dir', summary: 'This directory contains the source code of the project.'}\n\n4. Path:\nrandom/a/yarn.lock"
+                }
+              ]
+            },
+            {
+              "path": "test/fixtures/noTypeDefinitions",
+              "type": "dir",
+              "summary": "The file 'entrypoint.ts' imports the 'theAnswer' variable from the 'required' module.\nThe file 'required.d.ts' exports a constant variable named \"theAnswer\" of type number.\nThe file 'required.js' exports an object containing a property named \"theAnswer\" with a value of 42.",
+              "children": [
+                {
+                  "path": "test/fixtures/noTypeDefinitions/entrypoint.ts",
+                  "type": "file",
+                  "summary": "The file imports the 'theAnswer' variable from the 'required' module."
+                },
+                {
+                  "path": "test/fixtures/noTypeDefinitions/required.d.ts",
+                  "type": "file",
+                  "summary": "The file exports a constant variable named \"theAnswer\" of type number."
+                },
+                {
+                  "path": "test/fixtures/noTypeDefinitions/required.js",
+                  "type": "file",
+                  "summary": "The file exports an object containing a property named \"theAnswer\" with a value of 42."
+                }
+              ]
+            },
+            {
+              "path": "test/fixtures/onlyRealDeps",
+              "type": "dir",
+              "summary": "The file 'a.js' imports the 'path', 'debug', and 'not-real' modules.",
+              "children": [
+                {
+                  "path": "test/fixtures/onlyRealDeps/a.js",
+                  "type": "file",
+                  "summary": "The file imports the 'path', 'debug', and 'not-real' modules."
+                }
+              ]
+            },
+            {
+              "path": "test/fixtures/ts",
+              "type": "dir",
+              "summary": "This directory contains a mixture of TypeScript and JavaScript files. The file 'b.ts' exports a default function that logs 'hi' to the console. The file 'a.js' imports the function 'b' from 'b.js' and exports a function 'a' that logs 'a' to the console and calls 'b'. The file '.tsconfig' contains the compiler options configuration for the project.",
+              "children": [
+                {
+                  "path": "test/fixtures/ts/.tsconfig",
+                  "type": "file",
+                  "summary": "The file contains the configuration settings for the compiler options, specifically the \"module\" option, which is set to \"commonjs\" to define the module system used for code organization."
+                },
+                {
+                  "path": "test/fixtures/ts/a.ts",
+                  "type": "file",
+                  "summary": "The file imports module b from the current directory and module c from the current directory."
+                },
+                {
+                  "path": "test/fixtures/ts/b.ts",
+                  "type": "file",
+                  "summary": "The file exports a default function."
+                },
+                {
+                  "path": "test/fixtures/ts/c.ts",
+                  "type": "file",
+                  "summary": "The file exports a default function."
+                },
+                {
+                  "path": "test/fixtures/ts/d.tsx",
+                  "type": "file",
+                  "summary": "The file imports \"c\" from a local file named \"c.js\" and exports a default JSX element containing the text \"Hi\" enclosed in a div element."
+                },
+                {
+                  "path": "test/fixtures/ts/mixedTsJs",
+                  "type": "dir",
+                  "summary": "This directory contains a mixture of TypeScript and JavaScript files. The file 'b.ts' exports a default function that logs 'hi' to the console. The file 'a.js' imports the function 'b' from 'b.js' and exports a function 'a' that logs 'a' to the console and calls 'b'. The file '.tsconfig' contains the compiler options configuration for the project.",
+                  "children": [
+                    {
+                      "path": "test/fixtures/ts/mixedTsJs/.tsconfig",
+                      "type": "file",
+                      "summary": "The file contains the configuration settings for the compiler options in a project."
+                    },
+                    {
+                      "path": "test/fixtures/ts/mixedTsJs/a.js",
+                      "type": "file",
+                      "summary": "The file 'a.js' imports 'b' from a file named 'b.js'. It exports a function named 'a' that logs 'a' to the console and calls the imported function 'b'."
+                    },
+                    {
+                      "path": "test/fixtures/ts/mixedTsJs/b.ts",
+                      "type": "file",
+                      "summary": "The file \"b.ts\" contains a default exported function that logs 'hi' to the console."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "path": "test/fixtures/webpack",
+              "type": "dir",
+              "summary": "The file 'aliased.js' imports the module 'F' using the require() function and assigns it to the variable foo. \nThe file 'unaliased.js' imports the 'filing-cabinet' module using the require function.",
+              "children": [
+                {
+                  "path": "test/fixtures/webpack/aliased.js",
+                  "type": "file",
+                  "summary": "The file imports the module 'F' using the require() function and assigns it to the variable foo."
+                },
+                {
+                  "path": "test/fixtures/webpack/unaliased.js",
+                  "type": "file",
+                  "summary": "The file imports the 'filing-cabinet' module using the require function."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "path": "test/test.mjs",
+          "type": "file",
+          "summary": "This directory contains code for testing the dependencyTree function. It includes multiple code snippets and test cases that cover different scenarios and functionalities, such as resolving files with jsx or es7, handling es6 files with lazy requires or dynamic imports, and testing various module formats like amd, commonjs, es6, sass, stylus, less, and typescript. It also includes a test for dependencyTree.toList, which returns a post-order list form of the dependency tree. The code is organized into describe blocks, with each focusing on a specific module or functionality. These blocks include beforeEach and it statements that set up and perform tests, checking module dependencies, file inclusion in the dependency tree, and the behavior of certain configuration settings. Additionally, the code checks for the existence of a directory named 'onlyRealDeps' and performs operations on the files within it, while ensuring that certain files do not reference non-existent modules."
+        }
+      ]
+    },
+    {
+      "path": "webpack.config.js",
+      "type": "file",
+      "summary": "The file exports a configuration object that specifies the entry point as `index.js` and defines an alias `F` for the `filing-cabinet` module located in the `node_modules` directory."
+    }
+  ]
+}

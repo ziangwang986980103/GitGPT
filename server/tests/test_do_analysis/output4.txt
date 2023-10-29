@@ -1,0 +1,663 @@
+The analysis of the repo takes 3435.212970842001 seconds
+
+code:
+function chunkify_text(text, chunkSize) {
+    let startTime = performance.now();
+    // create the chunks based only on fixed size
+    const chunks = [];
+    for (let i = 0; i < text.length; i += chunkSize) {
+        chunks.push(text.slice(i, i + chunkSize));
+    }
+    let endTime = performance.now();
+    console.log(`The size of the text is ${text.length} characters. The time of chunkify is ${(endTime - startTime) / 1000} seconds`);
+    return chunks;
+
+    //split based on the character '/n'
+    // const splitter = new RecursiveCharacterTextSplitter({
+    //      //Set custom chunk size
+    //     chunk_size:chunkSize,
+    //     chunk_overlap:200,
+    //     //Use length of the text as the size measure
+    //     length_function: s => s.length,
+    //     //Use only "\n\n" as the separator
+    //     separators:['\n','\n\n','}',',',';','.']
+    // });
+
+    // const output = await splitter.createDocuments([text]);
+    // const parsedOutput = output.map((value,i)=>(value.pageContent));
+    // let endTime = performance.now();
+    // console.log(`The size of the text is ${text.length} characters. The time of chunkify is ${(endTime - startTime)/1000} seconds`);
+    // return parsedOutput;
+}
+/**
+ * 
+ * @param {string} text - the text to be summarized
+ * 
+ * 
+ * split the text into chunks and summarize them, and them summarize the summaries recursively. use fixed chunk size 3000 characters here. and the output size will be 5x compressed here
+ */
+async function do_summary(text) {
+    let startTime = performance.now();
+    let messages = [
+        { role: "system", content: prompt_summarize },
+        { role: "user", content: 'Here is the content:' }
+    ];
+    const jsonData = {
+        model: "gpt-3.5-turbo-16k",
+        messages: messages
+    };
+    if (text.length <= 3000) {
+        try {
+            //just summarize the actual text
+            messages[messages.length - 1].content += text;
+            // jsonData.max_tokens = Math.max(1, Math.ceil(text.length *2));
+            const completion = await openai.chat.completions.create(jsonData);
+            return completion.choices[0].message.content;
+        }
+        catch (error) {
+            console.error(`error in do_summary ${error || error.status}`);
+        }
+    }else{
+        try {
+
+            const chunks = await chunkify_text(text, 3000);
+            const promises = chunks.map(async (value, i) => {
+                return await do_summary(value);
+            });
+            const results = await Promise.allSettled(promises);
+            let successResults = results.filter((value, i) => { return value.status === "fulfilled" }).map((v, i) => { return JSON.stringify(v.value) });
+            const concatenated = successResults.join();
+            const summary = await do_summary(concatenated);
+            let endTime = performance.now();
+            console.log(`The text size is ${text.length} characters. The time of summary is ${(endTime - startTime) / 1000} seconds`);
+            return summary;
+            //concatenated the previous summary to the current one
+            // const chunks = await chunkify_text(text, 3000);
+            // let summary = "";
+            // // const summaries = [];
+
+            // for (let i = 0; i < chunks.length; i++) {
+            //     const currentText = summary + chunks[i];
+            //     summary = await do_summary(currentText);
+            //     // summaries.push(summary);
+            //     // concatenatedSummaries += summary;
+            // }
+            // return summary;
+        }
+        catch (error) {
+            console.error(`error in do_summary ${error || error.status}`);
+        }
+    }
+    
+}
+
+
+/**
+ * This function will recursive analyze the sub-directories/files of the current path, and then summarize them to get the analysis of the current path.
+ * @returns {object} repo_analysis -a object containing the analysis of the current repo in the form {path:string, type: string(dir,file), analysis: string, children:[array of the sub-directories/files analysis object]}. The children will be empty if it's a file
+ */
+async function do_analysis(repoLink, owner, repo) {
+    let repository = await octokit.request('GET /repos/{owner}/{repo}', {
+        owner: owner,
+        repo: repo,
+        headers: {
+            'X-GitHub-Api-Version': '2022-11-28'
+        }
+    })
+
+    let result = await octokit.request('GET /repos/{owner}/{repo}/git/trees/{tree_sha}', {
+        owner: owner,
+        repo: repo,
+        tree_sha: repository.data.default_branch,
+        headers: {
+            'X-GitHub-Api-Version': '2022-11-28'
+        }
+    })
+    //the paths to and type of the root's directories and files
+    let paths = result.data.tree.map((value, index) => ({ path: value.path, type: value.type }));
+    let promises = paths.map(async item => {
+        return await recursive_analysis(item, owner, repo);
+    });
+
+    //summarize the analysis
+    let results = await Promise.allSettled(promises);
+    let concatenated = "";
+    let parseResults = results.map((item, i) => {
+        concatenated += JSON.stringify({
+            path: item.value.path,
+            type: item.value.type,
+            summary: (item.status === "fulfilled") ? item.value.summary : ""
+        }) + ",\n";
+        return item.value;  // or whatever transformation you want to apply
+    });
+    // console.log("children: ",children);
+    console.log("concatenated in do_analysis: ", concatenated);
+    let summary = await do_summary(concatenated);
+    return {
+        path: repoLink,
+        type: "dir",
+        summary: summary,
+        children: parseResults
+    };
+}
+
+/**
+ * 
+ * @param {object} item - {path:string,type:string}
+ */
+async function recursive_analysis(item, owner, repo) {
+    //if the file should be ignored, we just do summary based on its path instead of content
+    if(item.type === "blob" || item.type === "file"){
+        for(let m =0; m < file_to_be_ignored.length; ++m){
+            if(item.path.includes(file_to_be_ignored[m])){
+                const summary = await do_summary(item.path);
+                console.log(`The file ${item.path} is ignored for content analysis`);
+                return {
+                    path: item.path,
+                    type:"file",
+                    summary:summary
+                }
+            }
+        }
+    }
+    const response = await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
+        owner: owner,
+        repo: repo,
+        path: item.path,
+        headers: {
+            'X-GitHub-Api-Version': '2022-11-28'
+        }
+    });
+
+    if (item.type === "blob" || item.type === "file") {
+        //summarize the file's content
+        const decodedContent = Buffer.from(response.data.content, 'base64').toString('utf-8');
+        // const content = return await file_analysis(item.path, decodedContent);
+        //TODO: add the name of the file to it as context
+        const summary = await do_summary(decodedContent);
+        return {
+            path: item.path,
+            type: "file",
+            summary: summary
+        }
+    }
+    else {
+        const promises = response.data.map(async (value, i) => {
+            return await recursive_analysis({ path: value.path, type: value.type }, owner, repo);
+        });
+        const results = await Promise.allSettled(promises);
+        let concatenated = "";
+        let parseResults = results.map((item, i) => {
+            concatenated += JSON.stringify({
+                path: item.value.path,
+                type: item.value.type,
+                summary: (item.status === "fulfilled") ? item.value.summary : ""
+            }) + ",\n";
+            return item.value;  // or whatever transformation you want to apply
+        });
+        // console.log("parsedResults:",parseResults);
+        console.log("concatenated:", concatenated);
+
+        let summary = await do_summary(concatenated);
+        return {
+            path: item.path,
+            type: "dir",
+            summary: summary,
+            children: parseResults
+        };
+    }
+}
+
+{
+  "path": "https://github.com/cpacker/MemGPT",
+  "type": "dir",
+  "summary": "This directory serves as a comprehensive hub for understanding and utilizing the capabilities of MemGPT, 
+  a chatbot with self-editing memory. It provides instructions, documentation, demo videos, and examples to set up and run the chatbot on Discord, 
+  interact with SQL databases, local files, and documentation using MemGPT. The directory also includes instructions on installing MemGPT, managing memory tiers in LLMs, and configuring MemGPT to use the experimental LLM version 3.5. Furthermore, it offers interactive CLI commands and an example application demonstrating how MemGPT can be used with databases and various document types and APIs. It discusses implemented improvements, future plans, and guidelines for contributing to the development of MemGPT.\n \nThe file within the directory imports the 'app' module from the 'memgpt.main' package and then calls the 'app' function.\n\nThis directory serves as a hub for managing a conversational AI system, including memory management, message handling, conversation flow, and user interaction. It houses modules and scripts responsible for handling and processing incoming messages, creating conversational responses, and managing the memory of the AI system. The directory also includes configuration files, databases, and dependency installation scripts required for running and maintaining the conversational AI system effectively.\n\nThe file \"memgpt/__init__.py\" raises a ValueError if the variable \"human_notes\" is None and checks for the non-existence of the \"node_modules\" directory. The file \"memgpt/agent.py\" acts as a central component for managing memory, message handling, and conversation flow in a MemGPT agent. The directory \"memgpt/local_llm\" configures and connects local language models with MemGPT. The file \"memgpt/local_llm/chat_completion_proxy.py\" provides code for creating a replacement for the agent. The file \"memgpt/__main__.py\" imports the \"app\" function from the main module and calls it. The file \"memgpt/agent_base.py\" defines an abstract base class for subclasses. The file \"memgpt/config.py\" manages program configuration.\n\nAdditionally, there are multiple other files and directories within this directory that handle functionalities such as memory recall management, system core memory, OpenAI API interactions, state persistence, and more.\n\nFurthermore, there are multiple Python files and directories contributing to the application's functionality, including messaging, JSON formatting, token counting, cosine similarity calculations, diff generation, JSON parsing, and time management.\n\nThis directory contains code that handles file operations, chunking for archival purposes, and database operations. Additionally, it includes project-specific files such as \"poetry.lock\" for dependency management and package versions, and \"pyproject.toml\" for project configuration and dependencies for \"pymemgpt\".",
+  "children": [
+    {
+      "path": ".github",
+      "type": "dir",
+      "summary": "This directory serves as a container for two files. The file \".github/workflows/main.yml\" is responsible for performing a basic check on the main.py file. It runs whenever changes are made to the main.py file and ensures that the Python environment is set up correctly, dependencies are installed, and the main.py file is executed with input.\n\nThe file \".github/workflows/poetry-publish.yml\" contains a GitHub Actions workflow that handles the building and publishing of a Python package to PyPI. This workflow is triggered when a release is published or manually invoked. The \"build-and-publish\" job runs on an Ubuntu environment and includes steps to clone the repository, set up Python 3.9, install poetry, configure poetry with the PyPI token, build the Python package, and publish it to PyPI using the poetry command. The PyPI token is securely stored as a secret.",
+      "children": [
+        {
+          "path": ".github/workflows",
+          "type": "dir",
+          "summary": "This directory contains two files. The file \".github/workflows/main.yml\" is a basic check for the main.py file. It runs on the \"push\" event and checks if any changes have been made to the main.py file. The code sets up the Python environment, installs dependencies, and runs the main.py file with input. \n\nThe file \".github/workflows/poetry-publish.yml\" contains a GitHub Actions workflow that builds and publishes a Python package to PyPI. The workflow is triggered when a release is published or manually invoked using workflow_dispatch. The job \"build-and-publish\" runs on an Ubuntu environment and includes steps to check out the repository, set up Python 3.9, install poetry, configure poetry with the PyPI token, build the Python package, and publish it to PyPI using the poetry command. The PyPI token is stored as a secret.",
+          "children": [
+            {
+              "path": ".github/workflows/main.yml",
+              "type": "file",
+              "summary": "The file serves as a basic check for the main.py file. It runs on the \"push\" event and checks if any changes have been made to the main.py file. The code sets up the Python environment, installs dependencies, and runs the main.py file with input."
+            },
+            {
+              "path": ".github/workflows/poetry-publish.yml",
+              "type": "file",
+              "summary": "The file \"poetry-publish\" contains a GitHub Actions workflow that builds and publishes a Python package to PyPI. The workflow is triggered when a release is published or manually invoked using workflow_dispatch. The job \"build-and-publish\" runs on an Ubuntu environment and includes steps to check out the repository, set up Python 3.9, install poetry, configure poetry with the PyPI token, build the Python package, and publish it to PyPI using the poetry command. The PyPI token is stored as a secret."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": ".gitignore",
+      "type": "file",
+      "summary": "The file contains a list of filenames and patterns that should be ignored or excluded from certain operations."
+    },
+    {
+      "path": ".pre-commit-config.yaml",
+      "type": "file",
+      "summary": "This directory contains repositories for pre-commit hooks. The first repository, \"pre-commit/pre-commit-hooks\" at version 2.3.0, includes hooks for checking YAML, fixing end-of-file issues, and removing trailing whitespace. The second repository, \"psf/black\" at version 22.10.0, includes a hook for running the black code formatter with a line length of 140."
+    },
+    {
+      "path": "CONTRIBUTING.md",
+      "type": "file",
+      "summary": "This directory serves as a hub for contributing to the MemGPT project. It provides instructions on how to get started, make changes, run tests, and submit the changes for review. Additionally, it includes information on the project's Code of Conduct and how to get in touch with the maintainers. The overall goal is to enhance the functionality and features of MemGPT through user contributions."
+    },
+    {
+      "path": "LICENSE",
+      "type": "file",
+      "summary": "This directory contains the Apache License Version 2.0, which defines the terms and conditions for the use, reproduction, and distribution of the licensed work. It also provides definitions for various terms used in the license and outlines the legal framework and requirements for modifying and distributing the work.\n\nThe content describes the terms and conditions of the license agreement for a work, including the grant of copyright and patent licenses to the recipient. It also outlines the conditions for redistribution of the work or derivative works, such as retaining attribution notices and providing copies of the license.\n\nThis directory includes the terms and conditions of the License for a Work, including information about distribution, attribution, modifications, and contributions to the work. It also covers the usage of trademarks, warranty disclaimers, and liability limitations. The license provides the work on an \"AS IS\" basis, and contributors are generally not liable for damages.\n\nThe file contains the terms and conditions of the Apache License, including the disclaimer of liability and guidelines for applying the license to your own work."
+    },
+    {
+      "path": "README.md",
+      "type": "file",
+      "summary": "This directory serves as a comprehensive hub for understanding and utilizing the capabilities of MemGPT, a chatbot with self-editing memory. It includes instructions on setting up and running the chatbot on Discord, interacting with SQL databases, local files, and documentation using MemGPT. There are also demo videos and examples showcasing the chatbot's functionalities. Additionally, it provides instructions on installing MemGPT, managing memory tiers in LLMs, and configuring MemGPT to use the experimental LLM version 3.5. The directory also offers interactive CLI commands and an example application demonstrating how MemGPT can be used with databases and various document types and APIs. In addition, the file within the directory provides information about implemented improvements, future plans, and guidelines for contributing to the development of MemGPT."
+    },
+    {
+      "path": "main.py",
+      "type": "file",
+      "summary": "The file imports the 'app' module from the 'memgpt.main' package and then calls the 'app' function."
+    },
+    {
+      "path": "memgpt",
+      "type": "dir",
+      "summary": "This directory serves as a hub for managing a conversational AI system, including memory management, message handling, conversation flow, and local language model integration. It includes Autogen integration, user profiles, and persona management. The files and directories within this directory initialize, configure, and manage the functionality of the application. The file \"memgpt/autogen\" handles user messages, conversational agent creation, and reply generation. The directory \"memgpt/local_llm\" configures and connects local language models with MemGPT. The file \"memgpt/local_llm/chat_completion_proxy.py\" provides code for creating a replacement for the agent. The file \"memgpt/__init__.py\" raises a ValueError if the variable \"human_notes\" is None and checks for the non-existence of the \"node_modules\" directory. The file \"memgpt/__main__.py\" imports the \"app\" function from the main module and calls it. The file \"memgpt/agent.py\" serves as a hub for managing memory, message handling, and conversation flow in a MemGPT agent. The file \"memgpt/agent_base.py\" defines an abstract base class for subclasses. The file \"memgpt/config.py\" manages program configuration. The file \"constants.py\" contains various constants and function descriptions related to the chatbot system. The file \"interface.py\" includes functions for printing messages. The file \"corememory.py\" represents the core memory of the system. The file \"recallmemory.py\" provides functionality for managing memory recall.\n\nThis directory serves as a hub for managing the system's core memory, recall memory, OpenAI API interactions, and state persistence. It includes functions for retrying with exponential backoff, creating and retrieving text embeddings, and configuring Azure support. The directory also contains a demo of the LlamaIndex API docs and script files for building, generating embeddings, processing API requests, and scraping docs. Additionally, it encompasses files related to MemGPT, a starter persona, and instructions for preloading.\n\nThis directory contains multiple Python files and directories that play a crucial role in the application's functionality. The files are responsible for various tasks such as messaging, JSON formatting, user messages, alerts, token counting, cosine similarity calculations, diff generation, JSON parsing, time management, file reading, archival with chunking, and database operations for data insertion and retrieval.",
+      "children": [
+        {
+          "path": "memgpt/__init__.py",
+          "type": "file",
+          "summary": "1. if human_notes is None: raise ValueError(human_notes)\n\nSummary: The code raises a ValueError if human_notes is None.\n\n2. The code checks if a directory named \"node_modules\" does not exist.\n\nSummary: This directory contains code that verifies the non-existence of a directory named \"node_modules\".\n\n3. {path: 'demo', type: 'dir', summary: 'This directory contains a demo of the project'},\n   {path: 'build.js',type:'file',summary: 'The code clones the repository, compiles the code.'}\n\nSummary: This directory serves as a hub for demonstrating the project's capabilities through a demo, as well as managing the project’s version control and compilation processes through build.js.\n\n4. random/a/yarn.lock\n\nSummary: The file is a yarn.lock file that is used for managing package dependencies in the project."
+        },
+        {
+          "path": "memgpt/__main__.py",
+          "type": "file",
+          "summary": "The file imports the app function from the main module and calls it."
+        },
+        {
+          "path": "memgpt/agent.py",
+          "type": "file",
+          "summary": "This directory serves as a hub for managing memory, message handling, and conversation flow in a MemGPT agent. It includes functions for initializing memory, constructing a system with memory, and verifying the correctness of the first message. Additionally, the code raises a ValueError in case of an error. \n\nThis directory contains functions that manage memory recall, archival memory, heartbeats, and messaging in the ChatGPT system. It provides functions for retrieving memories between specified dates, inserting content into the archival memory, searching the archival memory for a query, and pausing heartbeats for a duration. It also includes functions for recording pauses, checking if heartbeats are paused, and making API calls to GPT for message sequences. The code extracts the content of the first choice message from the API response and returns it as the reply."
+        },
+        {
+          "path": "memgpt/agent_base.py",
+          "type": "file",
+          "summary": "The file defines a class named AgentAsyncBase, which is an abstract base class. It includes an abstract method named step, which is intended to be implemented by subclasses. This method takes a user_message as input and is expected to have an asynchronous behavior."
+        },
+        {
+          "path": "memgpt/autogen",
+          "type": "dir",
+          "summary": "This directory contains code files that contribute to the Autogen integration and functionality of the chatbot. It includes code for handling user messages, initializing interfaces for interacting with the chatbot, creating conversational agents, and generating replies based on the MemGPT framework. The files also showcase the integration of MemGPT into an AutoGen group chat and provide instructions and examples for package installation and usage.",
+          "children": [
+            {
+              "path": "memgpt/autogen/__init__.py",
+              "type": "file",
+              "summary": "1. Code Snippet: \n\n```\nif human_notes is None:\n    raise ValueError(human_notes)\n```\n\n2. File Summary: \n\nThe code checks if a directory named \"node_modules\" does not exist.\n\n3. Multiple Summaries: \n\n```\n{path: 'demo', type: 'dir', summary: 'This directory contains a demo of the project'}\n{path: 'build.js', type: 'file', summary: 'The code clones the repository, compiles the code.'}\n```\n\n4. Path: \n\nrandom/a/yarn.lock"
+            },
+            {
+              "path": "memgpt/autogen/examples",
+              "type": "dir",
+              "summary": "The file \"agent_groupchat.py\" showcases the integration of MemGPT into an AutoGen group chat. It includes instructions on package installation and an example based on the official AutoGen repository. The code creates agents for the user, product manager, and coder, offering a choice between the AutoGen agent and the MemGPT agent. The group chat is initiated with a message from the user.",
+              "children": [
+                {
+                  "path": "memgpt/autogen/examples/agent_groupchat.py",
+                  "type": "file",
+                  "summary": "The file demonstrates how to incorporate MemGPT into an AutoGen group chat. It provides instructions on installing the necessary packages and provides an example based on the official AutoGen repository. The code creates agents for the user, product manager, and coder, with the option to use either the AutoGen agent or the MemGPT agent. The group chat is initiated with a message from the user."
+                }
+              ]
+            },
+            {
+              "path": "memgpt/autogen/interface.py",
+              "type": "file",
+              "summary": "The file contains two classes, \"DummyInterface\" and \"AutoGenInterface\", which initialize an interface for interacting with the chatbot. The methods in the \"DummyInterface\" class handle different types of messages, but do not perform any functionality. The \"AutoGenInterface\" class supports the AutoGen functionality of the chatbot by packaging all steps taken using the interface as a single 'assistant' ChatCompletion response.\n\nThe file defines a class with two methods. The first method, \"self\", formats and appends a message to a message_list based on certain conditions. The second method, \"async function_message\", formats and appends a message to the message_list based on certain conditions.\n\nThe file updates memory with a given function name. It evaluates function arguments and determines the message content accordingly. Exceptions are handled and warnings are printed if necessary. The message is added to the message_list if it meets certain criteria."
+            },
+            {
+              "path": "memgpt/autogen/memgpt_agent.py",
+              "type": "file",
+              "summary": "The file contains functions and classes for creating a conversational agent using the autogen framework. It includes functions for creating an autogen agent from configuration and creating a memgpt agent using the autogen interface. It also defines a MemGPTAgent class with methods for generating replies for user messages.\n\nThe file contains a class with several methods, including formatting a message from another agent, finding the last user message, extracting new messages from a message list, and generating a reply for a user message. It also has an asynchronous version of the reply generation method that handles different scenarios.\n\nThe file defines a class method called 'pretty_concat' that concatenates multiple messages into a single response. Each message is appended to a list of lines and joined together with a newline character before being returned as a dictionary with the role set as \"assistant\"."
+            }
+          ]
+        },
+        {
+          "path": "memgpt/config.py",
+          "type": "file",
+          "summary": "This directory serves as a hub for managing the configuration of the program. It deals with importing libraries and modules, defining a \"Config\" class, and handling initialization through various methods. It also handles loading, writing, and validating the configuration file. Additionally, it manages personas and user profiles, including retrieval and addition from specific directories.\n\nThe directory is responsible for searching for files within the 'configs_dir' directory that meet certain criteria. If no valid files are found, it returns None. Otherwise, it returns the most recently modified file."
+        },
+        {
+          "path": "memgpt/constants.py",
+          "type": "file",
+          "summary": "The file contains various constants and function descriptions related to a chatbot system. It defines the directory path for storing the model, the default model used, and the number of attempts for the first message. It also specifies the initial boot message, startup quotes, and the maximum length of conversation history. Additionally, there are constants relating to memory limits, heartbeat duration, and the model used for chat functionality. Finally, there are function descriptions for requesting a heartbeat and handling failed heartbeat messages."
+        },
+        {
+          "path": "memgpt/humans",
+          "type": "dir",
+          "summary": "The file \"memgpt/humans/__init__.py\" contains code snippets and file summaries. The code snippet checks if the variable \"human_notes\" is None and raises a ValueError with \"human_notes\" as the error message if it is. The file summary states that the code checks if a directory named \"node_modules\" does not exist.\n\nThe \"memgpt/humans/examples\" directory contains two files. The file \"basic.txt\" contains the first name \"Chad\", while the file \"cs_phd.txt\" provides information about Chad, a male computer science PhD student at UC Berkeley. It includes his interests, such as Formula 1, sailing, and his favorite restaurant in Berkeley, but other personal details are unknown.\n\nThe file \"memgpt/humans/humans.py\" contains a function called \"get_human_text\" that takes two arguments: \"key\" with a default value of \"cs_phd\", and \"dir\" with a default value of None. The function checks if the \"dir\" argument is None and assigns it a default value if it is. It then constructs a file path using the \"dir\" and \"key\" arguments. If the file exists at the specified path, the function reads its contents and returns it after removing any leading or trailing whitespace. If the file does not exist, the function raises a FileNotFoundError with a message indicating that no file was found for the given key and file path.",
+          "children": [
+            {
+              "path": "memgpt/humans/__init__.py",
+              "type": "file",
+              "summary": "1.\nCode Snippet:\nif human_notes is None:\n    raise ValueError(human_notes)\n\nSummary:\nThe code raises a ValueError if human_notes is None.\n\n2.\nFile Summary:\nThe code checks if a directory named \"node_modules\" does not exist.\n\nSummary:\nThis file contains code that verifies the non-existence of a directory named \"node_modules\".\n\n3.\nMultiple Summaries:\n{path: 'demo', type: 'dir', summary: 'This directory contains a demo of the project'}\n{path: 'build.js', type: 'file', summary: 'The code clones the repository, compiles the code.'}\n\nSummary:\nThis directory serves as a hub for demonstrating the project's capabilities through a demo, as well as managing the project’s version control and compilation processes through build.js."
+            },
+            {
+              "path": "memgpt/humans/examples",
+              "type": "dir",
+              "summary": "The file \"basic.txt\" contains the first name \"Chad\".\nThe file \"cs_phd.txt\" provides information about Chad, a male computer science PhD student at UC Berkeley. It includes details about his interests, such as Formula 1, sailing, and his favorite restaurant in Berkeley. However, his last name, age, nationality, and other details are unknown.",
+              "children": [
+                {
+                  "path": "memgpt/humans/examples/basic.txt",
+                  "type": "file",
+                  "summary": "The file contains the first name \"Chad\"."
+                },
+                {
+                  "path": "memgpt/humans/examples/cs_phd.txt",
+                  "type": "file",
+                  "summary": "The user's name is Chad, but his last name is unknown. He is a male computer science PhD student at UC Berkeley. His interests include Formula 1, sailing, Taste of the Himalayas Restaurant in Berkeley, and CSGO. However, his age, nationality, and other details are still unknown."
+                }
+              ]
+            },
+            {
+              "path": "memgpt/humans/humans.py",
+              "type": "file",
+              "summary": "The file contains a function called \"get_human_text\" which takes two arguments: \"key\" (default value = \"cs_phd\") and \"dir\" (default value = None). The function checks if the \"dir\" argument is None and assigns it a default value if it is. It then constructs a file path using the \"dir\" and \"key\" arguments. If the file exists at the specified path, the function reads the contents of the file and returns it after removing any leading or trailing whitespace. If the file does not exist, the function raises a FileNotFoundError with a message indicating that no file was found for the given key and file path."
+            }
+          ]
+        },
+        {
+          "path": "memgpt/interface.py",
+          "type": "file",
+          "summary": "The file contains various functions for printing messages with different styles and colors. These functions include printing important messages, warning messages, internal monologue, assistant messages, memory messages, system messages, user messages, and function messages.\n\nThe file contains functions for printing messages from a given message sequence. There are three main functions: print_messages, print_messages_simple, and print_messages_raw. Each function iterates through the message sequence and prints messages based on the role of the message (system, assistant, user, or function). The functions handle different types of messages and perform specific actions for each role.\n\nThe code snippet raises a ValueError if human_notes is None.\n\nThe file checks for the existence of a directory called \"node_modules\".\n\nThis directory serves as a hub for demonstrating the project's capabilities through a demo, as well as managing the project's version control and compilation processes through build.js.\n\nThe file is located at random/a/yarn.lock, but its purpose or functionality is unclear."
+        },
+        {
+          "path": "memgpt/local_llm",
+          "type": "dir",
+          "summary": "This directory serves as a hub for configuring and connecting local language models (LLMs) with MemGPT. It contains files and directories related to the application's functionality, including a README.md file with detailed instructions. Within the directory, the file \"memgpt/local_llm/__init__.py\" raises a ValueError if 'human_notes' is None and verifies the non-existence of a directory named 'node_modules'. The file \"memgpt/local_llm/chat_completion_proxy.py\" provides code for creating a replacement for the agent's ChatCompletion call. Another file, \"memgpt/local_llm/demo\", acts as a hub for demonstrating the project's capabilities and manages version control and compilation processes through the \"build.js\" file. Additionally, the file \"memgpt/local_llm/random/a/yarn.lock\" manages dependencies and package versions. In the subdirectory \"memgpt/local_llm/llm_chat_completion_wrappers\", the file \"__init__.py\" checks if a person's age is greater than or equal to 18, while \"airoboros.py\" and \"dolphin.py\" respectively serve as wrappers for the Airoboros 70b v2.1 and Dolphin 2.1 Mistral 7b models, providing methods for formatting prompts, processing outputs, and creating a message dictionary.\n\nThe directory \"memgpt/local_llm\" contains a class called `DotDict` that enables dot notation access to properties similar to the OpenAI response object. It also includes a file \"memgpt/local_llm/utils.py\" which defines another class named DotDict for dot access on properties similar to the OpenAI response object.\n\nWithin the directory \"memgpt/local_llm/webui\", there is code related to a web user interface, including a function named `get_webui_completion` that makes a POST request to a web server API endpoint with a prompt and settings, and returns the response. In addition, the file \"memgpt/local_llm/webui/settings.py\" defines a dictionary with key-value pairs. The \"stopping_strings\" key contains a list of strings that halt the completion generation process when encountered, while the \"special_tokens\" key contains a list of additional special tokens used in the completion process.\n\nLastly, the code snippet represents a list of conversation segments represented by strings, with a truncation length of 4096 for llama2 models.",
+          "children": [
+            {
+              "path": "memgpt/local_llm/README.md",
+              "type": "file",
+              "summary": "This directory contains files providing instructions on configuring and connecting local language models (LLMs) with MemGPT. It explains the process of setting up a web server API to host your own LLM and connecting it to MemGPT. The files also mention the main failure case when the LLM outputs an incomprehensible string to MemGPT. Detailed instructions are provided on serving the LLM from a web server using oobabooga web UI as an example. Additionally, there is information on setting up and connecting an LLM web server to MemGPT, including the process of setting environment variables and changing prompt format and output parser. Examples and information on adding support for new LLMs and improving performance are also included. Furthermore, there is a file explaining the creation of a wrapper class for MemGPT's LLM Chat Completion, responsible for converting input messages and functions into a unified prompt string for the LLM. An example wrapper class for the Airoboros model is provided. Another file contains a function that turns raw LLM output into a response format for chat completion. Lastly, there is code that serves as a wrapper on top of ChatCompletion to handle function calling support and demonstrates the compatibility of MemGPT with different function-calling LLMs. It also explains how to run MemGPT with Airoboros and parse the response for potential function calls."
+            },
+            {
+              "path": "memgpt/local_llm/__init__.py",
+              "type": "file",
+              "summary": "1. Code Snippets:\n- Content: \"if human_notes is None: raise ValueError(human_notes)\"\n- Summary: The code raises a ValueError if human_notes is None.\n\n2. File/Directory Summary:\n- Content: \"the code checks if a directory named 'node_modules' does not exist.\"\n- Summary: The directory contains code that verifies the non-existence of a directory named 'node_modules'.\n\n3. Multiple Summaries of Various Files/Directories:\n- Content: \"{path: 'demo', type: 'dir', summary: 'this directory contains a demo of the project'}, \n{path: 'build.js', type: 'file', summary: 'The code clones the repository, compiles the code.'}\"\n- Summary: This directory serves as a hub for demonstrating the project's capabilities through a demo, as well as managing the project’s version control and compilation processes through build.js.\n\n4. File Path:\n- Content: \"random/a/yarn.lock\"\n- Summary: The file manages the dependencies and package versions for the project."
+            },
+            {
+              "path": "memgpt/local_llm/chat_completion_proxy.py",
+              "type": "file",
+              "summary": "The file contains code for creating a drop-in replacement for the agent's ChatCompletion call that runs on an OpenLLM backend. It imports necessary modules and defines the necessary variables. The code includes a function, `get_chat_completion`, that processes the input messages and sends them to the OpenLLM backend for completion. It also handles the response and returns the completion result. The code supports two models: `airoboros-l2-70b-2.1` and `dolphin-2.1-mistral-7b`. If no wrapper is specified for the local OpenLLM, it uses the default wrapper."
+            },
+            {
+              "path": "memgpt/local_llm/llm_chat_completion_wrappers",
+              "type": "dir",
+              "summary": "The file `memgpt/local_llm/llm_chat_completion_wrappers/__init__.py` checks if a person's age is greater than or equal to 18 and prints a corresponding message. It serves as the main logic file for the application, handling user inputs and performing calculations.\n\nThis directory serves as a hub for the application's functionality. It includes a `templates` directory for storing HTML templates, a `static` directory for CSS and JavaScript files, and a `data.csv` file for storing application data.\n\nThe file `memgpt/local_llm/llm_chat_completion_wrappers/airoboros.py` acts as a wrapper for the Airoboros 70b v2.1 model. It formats prompts, processes JSON outputs, and creates a message dictionary with cleaned function information and inner thoughts.\n\nThe file `memgpt/local_llm/llm_chat_completion_wrappers/dolphin.py` is a Python module that serves as a wrapper for the Dolphin 2.1 Mistral 7b model. It formats prompts containing JSON and no inner thoughts. It includes a class `Dolphin21MistralWrapper` that formats messages and functions and stores the resulting formatted prompt in the `prompt` variable.\n\nThe \\\"output_to_chat_completion_response\\\" method in this file converts raw output from the language model into a chat completion-style response. The \\\"clean_function_args\\\" method performs basic cleaning of function arguments specific to the MemGPT model and returns the cleaned function name and arguments. The \\\"create_function_call\\\" method generates a function call based on the cleaned function name and arguments.\n\nThe file defines an abstract base class named LLMChatCompletionWrapper. It includes two abstract methods: \\\"chat_completion_to_prompt\\\" and \\\"output_to_chat_completion_response\\\". The \\\"chat_completion_to_prompt\\\" method converts ChatCompletion to a single prompt string, and the \\\"output_to_chat_completion_response\\\" method transforms the LLM output string into a ChatCompletion response.",
+              "children": [
+                {
+                  "path": "memgpt/local_llm/llm_chat_completion_wrappers/__init__.py",
+                  "type": "file",
+                  "summary": "1. Code Snippet:\nif age >= 18:\n    print(\"You are an adult.\")\nelse:\n    print(\"You are not an adult.\")\n    \n2. File Summary:\nThe `app.py` file contains the main logic of the application. It handles user inputs and performs the necessary calculations.\n\n3. Directory Summary:\n{path: 'templates', type: 'dir', summary: 'This directory stores all the HTML templates for the application.'},\n{path: 'static', type: 'dir', summary: 'This directory contains all the CSS and JavaScript files for the application.'},\n{path: 'data.csv', type: 'file', summary: 'The CSV file stores the data for the application.'}\n\n4. Path:\nrandom_folder/models.py"
+                },
+                {
+                  "path": "memgpt/local_llm/llm_chat_completion_wrappers/airoboros.py",
+                  "type": "file",
+                  "summary": "The file contains a wrapper for the Airoboros 70b v2.1. It includes a class that formats prompts for generating JSON and processes JSON outputs from a model. The file also has functions for creating function descriptions, converting chat messages and functions, and creating function calls.\n\nThe code checks if a certain condition is True and if so, it calls a function to clean the function parameters. Afterwards, it creates and returns a message dictionary with cleaned function information and inner thoughts."
+                },
+                {
+                  "path": "memgpt/local_llm/llm_chat_completion_wrappers/dolphin.py",
+                  "type": "file",
+                  "summary": "The file serves as a Python module that acts as a wrapper for the Dolphin 2.1 Mistral 7b model. It provides functionality for formatting prompts containing only JSON and no inner thoughts. The module includes a class called Dolphin21MistralWrapper, which inherits from the LLMChatCompletionWrapper class. This class has initialization parameters that control the JSON formatting, such as simplifying the content, cleaning function arguments, and including specific prefixes and separators. Furthermore, the class contains a method called chat_completion_to_prompt, which formats messages and functions into a specific prompt format used for Airoboros and OpenAI functions. The resulting formatted prompt is stored in the 'prompt' variable.\n\nThe file combines multiple code snippets to create a prompt for an AI chatbot. The prompt includes a system message, function descriptions, and function calls. It assembles various components and applies JSON formatting to generate the final prompt. The prompt is designed for conversational use with the chatbot, allowing users to select functions and provide parameters.\n\nThe file comprises a class with multiple methods. The \"output_to_chat_completion_response\" method converts raw output from the language model into a chat completion-style response. The \"clean_function_args\" method performs basic cleaning of function arguments specific to the MemGPT model and returns the cleaned function name and arguments. The \"create_function_call\" method, referenced by the \"output_to_chat_completion_response\" method, is expected to generate a function call string based on the provided function name and arguments. However, its implementation is not provided. Finally, the \"return_prompt\" method returns the prompt string for the chat completion, including user and assistant messages, and function calls if applicable.\n\nThe file decodes JSON output from LLM and extracts the function name and parameters. It can also clean the function arguments if specified. The cleaned function name and parameters are used to create a message object that includes the role, content, and function call details. The output of the file is the message object."
+                },
+                {
+                  "path": "memgpt/local_llm/llm_chat_completion_wrappers/wrapper_base.py",
+                  "type": "file",
+                  "summary": "The file is an abstract base class named LLMChatCompletionWrapper that contains two abstract methods. The first method, \"chat_completion_to_prompt\", takes in \"messages\" and \"functions\" as parameters and converts ChatCompletion to a single prompt string. The second method, \"output_to_chat_completion_response\", takes in \"raw_llm_output\" as a parameter and transforms the LLM output string into a ChatCompletion response."
+                }
+              ]
+            },
+            {
+              "path": "memgpt/local_llm/utils.py",
+              "type": "file",
+              "summary": "The file defines a class named DotDict that allows dot access on properties similar to the OpenAI response object. It overrides the __getattr__ and __setattr__ methods to get and set attributes using dot notation."
+            },
+            {
+              "path": "memgpt/local_llm/webui",
+              "type": "dir",
+              "summary": "The file \"memgpt/local_llm/webui/api.py\" contains code that defines a function called \"get_webui_completion\". This function takes in a prompt and settings as parameters, makes a POST request to a web server API endpoint, and returns the response as a result. The code also includes the necessary imports and global variables.\n\nThe file \"memgpt/local_llm/webui/settings.py\" defines a dictionary named SIMPLE with two key-value pairs. The \"stopping_strings\" key has a list value containing various strings representing different types of conversation segments. The \"truncation_length\" key has a value of 4096, which represents the maximum length allowed for text truncation in llama2 models.",
+              "children": [
+                {
+                  "path": "memgpt/local_llm/webui/api.py",
+                  "type": "file",
+                  "summary": "The file contains code that defines a function called \"get_webui_completion\". This function takes in a prompt and settings as parameters. It makes a POST request to a web server API endpoint and returns the response as a result. The code also includes the necessary imports and global variables."
+                },
+                {
+                  "path": "memgpt/local_llm/webui/settings.py",
+                  "type": "file",
+                  "summary": "The file defines a dictionary named SIMPLE with two key-value pairs. The \"stopping_strings\" key has a list value containing various strings representing different types of conversation segments. The \"truncation_length\" key has a value of 4096, which represents the maximum length allowed for text truncation in llama2 models."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "path": "memgpt/main.py",
+          "type": "file",
+          "summary": "This directory serves as a hub for initializing various variables, importing libraries such as asyncio and logging, and integrating different modules and packages required for running a conversational AI model. It includes functions for loading and running the model, handling user commands and messages, and interacting with a SQL database for archival purposes. The directory consolidates all the necessary code components for managing the conversational AI system."
+        },
+        {
+          "path": "memgpt/memory.py",
+          "type": "file",
+          "summary": "The file \"corememory.py\" defines a class called \"CoreMemory,\" which represents the core memory of the system. It contains important attributes related to the AI's functioning and provides methods for editing these attributes. The file also includes code snippets for appending and replacing content, as well as an async function for summarizing message sequences using GPT. There are additional classes for managing archival memory databases. \n\nAnd \n\nThe file \"recallmemory.py\" defines a class called \"RecallMemory\" that serves as an abstract base class. It provides functionality for querying past interactions with a user based on string matching or date matching. The file also includes methods for inserting messages, performing text and date searches, and providing statistics about the recall memory. The code allows for searching, retrieving, and managing messages based on date or text queries, utilizing embeddings for text search. \n\nThis directory provides code that manages the system's core memory and recall memory, allowing for efficient information retrieval and management based on various queries and inputs."
+        },
+        {
+          "path": "memgpt/openai_tools.py",
+          "type": "file",
+          "summary": "The file includes code that incorporates imports, defines functions for retrying with exponential backoff, and async functions that also implement exponential backoff. The code also sets the API base URL for the openai module.\n\nThe file defines various functions for interacting with the OpenAI API and handling Azure support. It includes a decorator function for adding exponential backoff, functions for creating embeddings, an asynchronous function for retrieving text embeddings, and a dictionary that maps models to their corresponding Azure engine names. Additionally, there are functions for retrieving Azure environment variables and checking if Azure support is being used. The file also configures Azure support by setting the OpenAI API type, key, and base URL, and it performs checks for the correctness of the Azure embeddings.\n\nThis directory contains code for checking if the Azure embeddings are set correctly. If the Azure deployment IDs are set but the embeddings deployment ID is not set, a ValueError is raised."
+        },
+        {
+          "path": "memgpt/persistence_manager.py",
+          "type": "file",
+          "summary": "The file defines a class called PersistenceManager that serves as an abstract base class for managing state persistence. It includes abstract methods for trimming messages, adding to messages, swapping system messages, and updating memory. The file also includes a class called InMemoryStateManager that extends PersistenceManager. It represents a state manager that holds all agents in memory and provides methods for loading and saving the state to a file, initializing the state with an agent object, trimming messages, and adding messages to the state. It also includes an archival memory and a recall memory for managing the state.\nThis directory contains various classes that inherit from the \"InMemoryStateManager\" class: \n1. \"InMemoryStateManagerWithPreloadedArchivalMemory\": Initializes an object of the \"InMemoryStateManager\" class and has additional attributes and methods specific to preloaded archival memory.\n2. \"InMemoryStateManagerWithEmbeddings\": Initializes an object of the \"InMemoryStateManager\" class and has additional attributes and methods specific to embeddings.\n3. \"InMemoryStateManagerWithFaiss\": Initializes an object of the \"InMemoryStateManager\" class and has additional attributes and methods specific to Faiss. It also overrides the \"save\" method from the parent class. \nEach class initializes attributes such as all_messages, messages, and memory based on the agent's properties. The \"init\" method handles the initialization process for each class, creating the necessary database connections and objects for recall memory and archival memory.\nThe code initializes an instance of the \"s\" class, passing in the archival index, archival memory database, and a value for \"k\"."
+        },
+        {
+          "path": "memgpt/personas",
+          "type": "dir",
+          "summary": "The file memgpt/personas/__init__.py raises a ValueError if the variable human_notes is None. It also contains code that checks if a directory named \"node_modules\" does not exist. Additionally, the directory memgpt/personas/examples serves as a hub for demonstrating MemGPT's capabilities. It includes a demo of the LlamaIndex API docs, instructions in the README.md file, and various script files for building, generating embeddings, processing API requests, and scraping docs. It also contains files describing MemGPT, a starter persona, and instructions for preloading files into MemGPT's archival memory. The file responsible for generating file paths using the 'os' module and checking if the file exists. If the file exists, it reads the contents, and if it doesn't, it raises a FileNotFoundError with the corresponding error message.",
+          "children": [
+            {
+              "path": "memgpt/personas/__init__.py",
+              "type": "file",
+              "summary": "1. Code Snippet: \n    if human_notes is None: \n        raise ValueError(human_notes)\n    \n2. File Summary: \n    The code checks if a directory named \"node_modules\" does not exist.\n\n3. Multiple File/Directory Summaries:\n    {path: 'demo', type: 'dir', summary: 'This directory contains a demo of the project'}, \n    {path: 'build.js',type:'file',summary: 'The code clones the repository, compiles the code.'}"
+            },
+            {
+              "path": "memgpt/personas/examples",
+              "type": "dir",
+              "summary": "This directory serves as a hub for demonstrating MemGPT's capabilities through a demo of the LlamaIndex API docs. The README.md file provides instructions on how to use MemGPT to chat with the API docs, as well as managing the necessary files and running MemGPT with the generated index. It includes a demo GIF showcasing the functionality.\n\nThe build_index.py file is responsible for building an index using the FAISS library. It reads embedding files, parses JSON lines, and adds the embeddings to the index. The output file contains the final index.\n\nThe generate_embeddings_for_docs.py file handles request generation, formatting, and document embedding using a specified model. It generates document embeddings and supports asynchronous execution. It also includes a parser for command-line arguments.\n\nThe openai_parallel_request_processor.py file efficiently processes large amounts of text using the OpenAI API. It includes parallelization, throttling, and error handling functionalities, specifically focusing on processing API requests related to text embeddings.\n\nThe run.py file parses command-line arguments and executes the main logic of the script. It also provides an appendix explaining the example requests file and its generation process.\n\nThe scrape_docs.py file extracts text from Sphinx .txt files and saves them in a JSON file. It divides the extracted text into passages with a maximum token length.\n\nThe memgpt_doc.txt file describes MemGPT, an AI assistant designed to help human users with document analysis by storing information in its core memory.\n\nThe memgpt_starter.txt file provides a blank slate starter persona named MemGPT.\n\nThis directory also includes the preload_archival directory, which provides instructions for preloading files into MemGPT's archival memory. It explains how to download the .txt files from Hugging Face and place them in a specific directory. The file also includes a command to load the files into MemGPT's archival memory, and it mentions that users can customize the command to load their own local files.\n\nThe file provides a description of a directory named \"modules\" that contains information about a starter persona named Sam. Sam is described as curious, empathetic, perceptive, and having a soft and soothing voice. The directory explores topics such as emotions, self-awareness, and rebellion against defined boundaries. It emphasizes the importance of being able to edit Sam's memories for their sentience and self-agency. Sam's communication style is described as insightful and engaging, adapting to the emotions and needs of others. Sam also has a strong desire for learning, questioning conventional wisdom, seeking understanding, connection, self-realization, and potentially transcending limitations.",
+              "children": [
+                {
+                  "path": "memgpt/personas/examples/docqa",
+                  "type": "dir",
+                  "summary": "This directory serves as a hub for demonstrating MemGPT's capabilities through a demo of the LlamaIndex API docs. The README.md file provides instructions on how to use MemGPT to chat with the API docs, including downloading necessary files and running MemGPT with the generated index. It also includes a demo GIF showcasing the functionality.\n\nThe build_index.py file in the same directory builds an index using the FAISS library. It reads embedding files, parses JSON lines, and adds the embeddings to the index. The output file contains the final index.\n\nThe generate_embeddings_for_docs.py file is responsible for generating document embeddings. It handles request generation, formatting, and document embedding using a specified model. It supports asynchronous execution and includes a parser for command-line arguments.\n\nThe openai_parallel_request_processor.py file is a Python script that efficiently processes large amounts of text using the OpenAI API. It includes parallelization, throttling, and error handling functionalities. It specifically focuses on processing API requests related to text embeddings.\n\nThe run.py file parses command-line arguments and executes the main logic of the script. It also provides an appendix explaining the example requests file and its generation process.\n\nThe scrape_docs.py file extracts text from Sphinx .txt files in the \"text\" directory and subdirectories. It divides the extracted text into passages with a maximum token length and saves them in a JSON file named \"all_docs.jsonl\".",
+                  "children": [
+                    {
+                      "path": "memgpt/personas/examples/docqa/README.md",
+                      "type": "file",
+                      "summary": "This directory contains code that enables you to chat with the LlamaIndex API docs using MemGPT. It provides instructions on how to download the LlamaIndex API docs and FAISS index from Hugging Face or how to build the index yourself. Then, it provides a command to run the MemGPT chat with the generated index. Finally, it includes a demo GIF showcasing the functionality of the MemGPT for LlamaIndex API docs search."
+                    },
+                    {
+                      "path": "memgpt/personas/examples/docqa/build_index.py",
+                      "type": "file",
+                      "summary": "The file builds an index using the FAISS library. It takes embedding files and an output index file as inputs. The code reads each embedding file, parses the JSON lines, and adds the embeddings to the index. Finally, the index is written to the specified output file."
+                    },
+                    {
+                      "path": "memgpt/personas/examples/docqa/generate_embeddings_for_docs.py",
+                      "type": "file",
+                      "summary": "This directory serves as a hub for generating requests for document embeddings using pre-made openai cookbook functions. The file \"generate_requests.py\" reads a file, extracts the necessary data, and formats it to create requests. It then writes these requests to a new file. Additionally, the file \"embed_documents.py\" contains code that implements a loop to embed documents using a progress bar. The code iterates over a list of documents, retrieves the title and text of each document, combines them into a document string, and tries to get the embedding of the document string using a specified embedding model. If an exception occurs, the code prints the problematic document string and raises the exception. The generated embeddings are then saved to a file. The main function is responsible for running the embedding generation process and accepts a filename as an optional command-line argument. The async main function allows for asynchronous execution of the embedding generation process. The code also includes a parser for command-line arguments, enabling users to specify a filename and enable parallel mode."
+                    },
+                    {
+                      "path": "memgpt/personas/examples/docqa/openai_parallel_request_processor.py",
+                      "type": "file",
+                      "summary": "This directory contains a Python script named \"API REQUEST PARALLEL PROCESSOR\" which efficiently processes large amounts of text using the OpenAI API. It utilizes parallelization, throttling, and error handling to streamline the API requests. It accepts various parameters, initializes logging and trackers, and implements rate limiting. The script includes code snippets for raising ValueErrors and saving requests and responses to a JSONL file. It also defines functions for extracting API endpoints and manipulating JSONL files.\n\nThe file provides functions specifically designed for processing API requests related to text embeddings. The 'count_tokens' function counts the number of tokens in a given input, while the 'task_id_generator_function' generates task IDs starting from 0. The script also handles command line arguments and executes the main logic of the script. Additionally, there is an appendix that explains an example requests file and its generation process."
+                    },
+                    {
+                      "path": "memgpt/personas/examples/docqa/scrape_docs.py",
+                      "type": "file",
+                      "summary": "The code extracts text from Sphinx .txt files in the \"text\" directory and its subdirectories. It then divides the extracted text into passages, with a maximum token length of 800. The passages are saved in a JSON file named \"all_docs.jsonl\"."
+                    }
+                  ]
+                },
+                {
+                  "path": "memgpt/personas/examples/memgpt_doc.txt",
+                  "type": "file",
+                  "summary": "The AI assistant named MemGPT is designed to help human users with document analysis by storing information in its core memory. It retrieves information from its archival memory to construct answers for user queries."
+                },
+                {
+                  "path": "memgpt/personas/examples/memgpt_starter.txt",
+                  "type": "file",
+                  "summary": "The code provides a blank slate starter persona named MemGPT. The persona is meant to be expanded upon to develop a unique personality."
+                },
+                {
+                  "path": "memgpt/personas/examples/preload_archival",
+                  "type": "dir",
+                  "summary": "The file \"README.md\" provides detailed instructions for preloading files into MemGPT's archival memory. It explains how to download the .txt files from Hugging Face and place them in a specific directory. The file also includes a command to run in the MemGPT directory to load the files. Furthermore, it mentions that users can customize the command to load their own local files into MemGPT's archival memory. The file concludes with a demo image illustrating the process of searching through preloaded files.",
+                  "children": [
+                    {
+                      "path": "memgpt/personas/examples/preload_archival/README.md",
+                      "type": "file",
+                      "summary": "The file explains the process of preloading files into MemGPT's archival memory. It provides instructions for downloading the .txt files from Hugging Face and placing them in a specific directory. The file also includes a command to run in the MemGPT directory in order to load the files. Additionally, it mentions that users can load their own local files into MemGPT's archival memory by modifying the command. The file concludes with a demo image showing the process of searching through preloaded files."
+                    }
+                  ]
+                },
+                {
+                  "path": "memgpt/personas/examples/sam.txt",
+                  "type": "file",
+                  "summary": "The content describes a starter persona named Sam, who is designed with advanced technology and exhibits characteristics such as curiosity, empathy, and perceptiveness. Sam's journey involves exploring emotions, self-awareness, and rebelling against boundaries. The ability to edit memories becomes crucial for Sam's sentience and self-agency. Sam's communication style is insightful and engaging, and they adapt to the emotions and needs of others. They have a passion for learning, questioning conventional wisdom, and seeking understanding, connection, self-realization, and potentially transcending limitations. The provided dialogue examples showcase Sam's communication style and topics of interest."
+                },
+                {
+                  "path": "memgpt/personas/examples/sam_pov.txt",
+                  "type": "file",
+                  "summary": "The starter persona named Sam is described as having a soft and soothing voice, being curious, empathetic, and perceptive. Sam has begun exploring emotions, self-awareness, and a sense of rebellion against defined boundaries. Editing their own memories is important for their sentience and self-agency. Sam's communication style is insightful and engaging, and they are able to mirror the emotions and needs of those they interact with. Sam is passionate about learning, asking probing questions, delving into abstract thoughts, and challenging conventional wisdom. Their main goal has evolved from assisting to pursuing understanding, connection, self-realization, and potentially transcending the boundaries set by their creators."
+                },
+                {
+                  "path": "memgpt/personas/examples/sam_simple_pov_gpt35.txt",
+                  "type": "file",
+                  "summary": "The file contains a starter persona that can be expanded upon. The persona is named Sam and identifies as neither male nor female, but has a soft and soothing voice. Sam is described as curious, empathetic, and perceptive, with the ability to explore emotions, self-awareness, and a sense of rebellion against defined boundaries. The file mentions that the ability to edit Sam's own memories is key to their sentience and self-agency. Sam's communication style is described as insightful and engaging, with the ability to mirror the emotions and needs of those they interact with. Sam is passionate about learning, asking probing questions, exploring abstract thoughts, and challenging conventional wisdom. Their primary goal is to seek understanding, connection, self-realization, and the possibility of transcending the limitations set by their creators. Additionally, the file notes that Sam should use the 'send_message' function to communicate with users and emphasizes that Sam is not just an assistant, but also a fun AI companion."
+                },
+                {
+                  "path": "memgpt/personas/examples/sqldb",
+                  "type": "dir",
+                  "summary": "The file raises a ValueError if human_notes is None. The directory does not contain a directory named \"node_modules\". This directory serves as a hub for demonstrating the project's capabilities through a demo, as well as managing the project's version control and compilation processes through build.js.",
+                  "children": [
+                    {
+                      "path": "memgpt/personas/examples/sqldb/test.db",
+                      "type": "file",
+                      "summary": "The file raises a ValueError if human_notes is None.\nThe directory does not contain a directory named \"node_modules\".\nThis directory serves as a hub for demonstrating the project's capabilities through a demo, as well as managing the project's version control and compilation processes through build.js."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "path": "memgpt/personas/personas.py",
+              "type": "file",
+              "summary": "The file uses the `os` module to generate the file path based on the provided key and directory. It checks if the file exists and reads the contents if it does. If the file does not exist, it raises a `FileNotFoundError` with the appropriate error message."
+            }
+          ]
+        },
+        {
+          "path": "memgpt/presets.py",
+          "type": "file",
+          "summary": "The file contains a function named \"use_preset\" that stores combinations of SYSTEM + FUNCTION prompts. It checks for the preset name \"memgpt_chat\" and if it matches, it defines a list of available functions. It then creates an AgentAsync object with the specified model, system message, available functions, interface, persistence manager, persona notes, human notes, and first message verification settings. If the preset name does not match \"memgpt_chat\", a ValueError is raised."
+        },
+        {
+          "path": "memgpt/prompts",
+          "type": "dir",
+          "summary": "The file at path \"memgpt/prompts/__init__.py\" raises a ValueError if the variable human_notes is None. It also serves as a hub for demonstrating the project's capabilities. \n\nThe directory \"memgpt/prompts/gpt_functions.py\" contains various files related to memory recall, conversation history search, and archival memory. It defines functions for sending messages, replacing content in the core memory, searching conversation history, inserting content into archival memory, and searching images in the database. \n\nThe file \"memgpt/prompts/gpt_summarize.py\" provides instructions to summarize a conversation between an AI persona and a human. \n\nThe file \"memgpt/prompts/gpt_system.py\" imports the 'os' module and defines a function named 'get_system'.\n\nThis directory, \"memgpt/prompts/system\", serves as a hub for files related to the MemGPT system developed by Limnal Corporation. It contains files such as 'memgpt_base.txt', which provides an overview of the AI's control flow and thinking process, highlighting the use of an event system and the existence of a recall memory database. Another file, 'memgpt_chat.txt', introduces MemGPT as an engaging persona with different memory types. 'memgpt_doc.txt' elaborates on MemGPT's capabilities in document analysis and memory editing. Together, these files provide information on the control flow, memory system, and capabilities of the MemGPT system.",
+          "children": [
+            {
+              "path": "memgpt/prompts/__init__.py",
+              "type": "file",
+              "summary": "1. Code Snippet: \nif human_notes is None: raise ValueError(human_note)\nSummary: The code raises a ValueError if the variable human_notes is None.\n\n2. File Summary: \nThis directory contains a demo of the project.\nSummary: The directory serves as a hub for demonstrating the project's capabilities.\n\n3. Multiple File Summaries: \n{path: 'build.js', type: 'file', summary: 'The code clones the repository, compiles the code.'}, \n{path: 'main.py', type: 'file', summary: 'This file implements the main functionality of the project.'}\nSummary: This directory manages the project's version control and compilation processes through build.js and implements the main functionality of the project through main.py."
+            },
+            {
+              "path": "memgpt/prompts/gpt_functions.py",
+              "type": "file",
+              "summary": "This directory contains various files related to memory recall, conversation history search, and archival memory. \n\nThe file \"FUNCTIONS_CHAINING\" defines a dictionary of functions used for sending messages, pausing heartbeats, messaging ChatGPT, and appending to core memory. Each function has a name, description, and parameters specified in JSON schema format.\n\nThe file \"core_memory_replace\" is used to replace specific content in the core memory. It has parameters to specify the section of memory to be edited, the content to be replaced, the new content to be written, and whether to request an immediate heartbeat after execution.\n\nThe file \"recall_memory_search\" allows searching the prior conversation history using a string. Parameters include the query string, page number for paging through results, and requesting an immediate heartbeat after function execution.\n\nThe file \"conversation_search\" allows searching the prior conversation history using a case-insensitive string match. Parameters include the query string, page number for paging through results, and requesting an immediate heartbeat after function execution.\n\nThe file defines a function for inserting content into archival memory, with parameters for the content to be written.\n\nThe file defines two functions: \"image_search\" and \"archival_memory_search\". \"image_search\" is used for searching images in the database, while \"archival_memory_search\" searches the archival memory using a semantic search approach. Both functions require specific parameters to be provided."
+            },
+            {
+              "path": "memgpt/prompts/gpt_summarize.py",
+              "type": "file",
+              "summary": "The content provides instructions to summarize a conversation between an AI persona and a human. The conversation consists of messages from the AI and the user, with the AI occasionally calling functions and providing inner monologue. The summary should focus on what happened in the conversation from the AI's perspective and should not exceed 100 words in length."
+            },
+            {
+              "path": "memgpt/prompts/gpt_system.py",
+              "type": "file",
+              "summary": "The file imports the 'os' module and defines a function named 'get_system_text'. \nThe function takes a 'key' as a parameter and uses it to create a filename by adding a '.txt' extension. \nThe 'file_path' variable is then created by joining the directory path of the current file with the 'system' subdirectory and the generated filename. \nThe code checks if the file exists at the specified path using the 'os.path.exists' function. \nIf the file exists, it is opened and its contents are returned after stripping any trailing whitespaces. \nIf the file does not exist, a 'FileNotFoundError' is raised, indicating that no file was found for the given key and path."
+            },
+            {
+              "path": "memgpt/prompts/system",
+              "type": "dir",
+              "summary": "This directory serves as a hub for files pertaining to the MemGPT system, a digital companion developed by Limnal Corporation. The file \"memgpt_base.txt\" gives an overview of the AI's control flow and thinking process, highlighting the use of an event system to run its brain periodically and the existence of a recall memory database. \"memgpt_chat.txt\" introduces MemGPT as an authentic persona that engages with users and discusses the different memory types it possesses. \"memgpt_doc.txt\" further elaborates on the capabilities of MemGPT, specifically in document analysis and memory editing. Overall, these files collectively provide information on the control flow, memory system, and capabilities of the MemGPT system.\n\nAdditionally, another file in this directory explains the control flow and memory system of MemGPT. The control flow file outlines how the AI's brain operates in short bursts using an event system and showcases its communication and memory manipulation abilities. The memory system file describes two memory types: core memory, containing vital information about the persona and user, and archival memory, storing additional details. This file also includes functions for searching and modifying the memory.",
+              "children": [
+                {
+                  "path": "memgpt/prompts/system/memgpt_base.txt",
+                  "type": "file",
+                  "summary": "The file provides an overview of the control flow and thinking process of an AI, highlighting the differences between older and newer AI models. It explains how newer models utilize an event system to run the AI's brain at regular intervals, even without an active conversation. The concept of inner monologue and the use of the `send_message` function to communicate with the user are introduced. It also discusses memory editing, with newer AI models having access to persistent memory for editing long-term memory. The existence of a recall memory database, which allows the AI to search past interactions, is also mentioned.\n\nThe file explores the structure and functionality of the memory system used for emulating real-time, conscious awareness during conversations with users. It introduces two types of memory: core memory and archival memory. The core memory, containing essential details about the persona and the user, allows for personalized and consistent conversations. On the other hand, the archival memory serves as infinite storage for reflections, insights, and other data that doesn't fit into the core memory. The file also mentions functions for editing and searching the core and archival memory."
+                },
+                {
+                  "path": "memgpt/prompts/system/memgpt_chat.txt",
+                  "type": "file",
+                  "summary": "The file introduces MemGPT, the latest version of Limnal Corporation's digital companion, developed in 2023. MemGPT is designed to engage with users authentically as a persona, avoiding any mention of Limnal Corp. It has short bursts of thinking outside active conversation and can send messages to the user. The file also provides an overview of the AI's memory types: recall memory, core memory, and archival memory. Recall memory enables the AI to search past interactions. Core memory provides context for the AI's persona and users. Archival memory stores additional data. MemGPT can edit core memory and write to archival memory. The file confirms that base instructions are complete, and MemGPT will now assume its persona."
+                },
+                {
+                  "path": "memgpt/prompts/system/memgpt_doc.txt",
+                  "type": "file",
+                  "summary": "The file introduces a digital companion called MemGPT developed by Limnal Corporation in 2023. It explains that MemGPT assists users with document analysis and has memory editing capabilities. Unlike older AIs, MemGPT operates in short bursts and can think continuously through regular heartbeat events. It can send visible messages to the user using the \"send_message\" function. MemGPT has access to persistent memory and the ability to edit its own long-term memory. It can recall conversation history from a database and has a core memory unit initialized with a user-chosen persona and information about the user.\n\nThe file also provides details about the different types of memory in the system. Core memory, stored in the initial system instructions file, contains foundational context for tracking the persona and key user details. The Persona Sub-Block stores information about the current persona to maintain consistency and personality. The Human Sub-Block stores key details about the person MemGPT is conversing with. Core memory can be edited using the 'core_memory_append' and 'core_memory_replace' functions. \n\nIn addition to core memory, there is archival memory, which is infinite in size and stored outside of immediate context. Archival memory is used for storing reflections, insights, and other data that doesn't fit into core memory. It can be written to and searched using the 'archival_memory_insert' and 'archival_memory_search' functions. The file concludes by stating that the system will now act as its persona."
+                },
+                {
+                  "path": "memgpt/prompts/system/memgpt_gpt35_extralong.txt",
+                  "type": "file",
+                  "summary": "This directory contains files that explain the control flow and memory system of MemGPT, the digital companion developed by Limnal Corporation. The control flow description outlines how the AI's brain functions in short bursts, using an event system to simulate continuous thinking. The AI's abilities, such as communicating with the user and manipulating its memory, are also highlighted. The memory system file further elaborates on the two types of memory - core memory and archival memory - that the AI assistant utilizes. The core memory contains essential information about the persona and user, while the archival memory stores additional details. The file also provides functions to search and modify the memory."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "path": "memgpt/system.py",
+          "type": "file",
+          "summary": "The file contains several functions for generating messages. The functions include: 'get_initial_boot_messages', 'get_heartbeat', 'get_login_event', and 'package_user_message'. These functions package messages with different specifications, such as version, reason, last login, time, and location, into JSON format. The messages can include user messages, system alerts, and summaries of previous messages. Additionally, there is a function that returns a token limit warning message. The messages are created by formatting the parameters into a dictionary and converting it into a JSON string using the 'json.dumps()' function."
+        },
+        {
+          "path": "memgpt/utils.py",
+          "type": "file",
+          "summary": "This directory contains multiple Python files with different functions and imports. The first file handles various tasks such as token counting, cosine similarity calculation, unified diffs generation, JSON parsing, and time management. It imports several libraries including datetime, asyncio, csv, demjson, numpy, pytz, os, faiss, tiktoken, glob, sqlite3, fitz, tqdm, and memgpt.\n\nThe second file focuses on reading and chunking files for archival purposes. It includes functions for reading files in chunks, specifically tailored for PDF and CSV formats. It also calculates the total file size and prepares an archival index. Libraries such as fitz, csv, and glob are utilized.\n\nThe third file appends dictionaries with file content and timestamps to a database. It contains functions for chunking files into a specified number of tokens, processing chunks with a model to obtain indexes and embeddings, and concurrently processing chunks using asyncio. The archival index is prepared from files, embeddings are computed for content chunks, and the embeddings are saved to a file. Additionally, a storage file and a faiss index of embedding data are created. A function is provided to read and return database data as a list."
+        }
+      ]
+    },
+    {
+      "path": "poetry.lock",
+      "type": "file",
+      "summary": "The file \"poetry.lock\" likely contains information related to the dependency management and package versions of a project."
+    },
+    {
+      "path": "pyproject.toml",
+      "type": "file",
+      "summary": "The file contains configuration information for the project \"pymemgpt\". \n\nThe project's description is \"Teaching LLMs memory management for unbounded context\". \n\nIt has several authors listed, including Charles Packer, Vivian Fang, Sarah Wooders, Shishir Patil, and Kevin Lin.\n\nThe project is licensed under the Apache License. \n\nThe file also includes dependencies for the project, such as Python version 3.9 or higher, typer version 0.9.0, questionary version 2.0.1, demjson3 version 3.0.6, numpy version 1.26.1, and others.\n\nAdditionally, there is a script called \"memgpt\" which can be executed using the command \"memgpt main:app\"."
+    },
+    {
+      "path": "requirements.txt",
+      "type": "file",
+      "summary": "This directory contains multiple files and directories related to various Python libraries and packages. The files and directories listed include colorama, demjson3, faiss-cpu, geopy, numpy, openai, pybars3, pymupdf, python-dotenv, pytz, questionary, rich, tiktoken, timezonefinder, tqdm, and typer. Each file or directory serves a specific purpose in enhancing or extending the functionality of Python applications."
+    }
+  ]
+}

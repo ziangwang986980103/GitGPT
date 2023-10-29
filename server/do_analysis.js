@@ -1,6 +1,7 @@
 import fs from "fs";
 import { Octokit } from "@octokit/rest";
 import { process } from './env.js';
+import file_to_be_ignored from "./Prompts/ignore.js";
 import prompt_summarize from './Prompts/gpt_summarize.js';
 import OpenAI, { NotFoundError } from 'openai';
 const octokit = new Octokit({ auth: process.env.GITHUB_PAT });
@@ -54,7 +55,7 @@ async function do_summary(text) {
         model: "gpt-3.5-turbo-16k",
         messages: messages
     };
-    if (text.length <= 3000) {
+    if (text.length <= 8000) {
         try {
             //just summarize the actual text
             messages[messages.length - 1].content += text;
@@ -65,36 +66,38 @@ async function do_summary(text) {
         catch (error) {
             console.error(`error in do_summary ${error || error.status}`);
         }
-    }
-    try {
+    }else{
+        try {
 
-        const chunks = await chunkify_text(text, 3000);
-        const promises = chunks.map(async (value, i) => {
-            return await do_summary(value);
-        });
-        const results = await Promise.allSettled(promises);
-        let successResults = results.filter((value, i) => { return value.status === "fulfilled" }).map((v, i) => { return JSON.stringify(v.value) });
-        const concatenated = successResults.join();
-        const summary = await do_summary(concatenated);
-        let endTime = performance.now();
-        console.log(`The text size is ${text.length} characters. The time of summary is ${(endTime - startTime) / 1000} seconds`);
-        return summary;
-        //concatenated the previous summary to the current one
-        // const chunks = await chunkify_text(text, 3000);
-        // let summary = "";
-        // // const summaries = [];
+            const chunks = await chunkify_text(text, 8000);
+            const promises = chunks.map(async (value, i) => {
+                return await do_summary(value);
+            });
+            const results = await Promise.allSettled(promises);
+            let successResults = results.filter((value, i) => { return value.status === "fulfilled" }).map((v, i) => { return JSON.stringify(v.value) });
+            const concatenated = successResults.join();
+            const summary = await do_summary(concatenated);
+            let endTime = performance.now();
+            console.log(`The text size is ${text.length} characters. The time of summary is ${(endTime - startTime) / 1000} seconds`);
+            return summary;
+            //concatenated the previous summary to the current one
+            // const chunks = await chunkify_text(text, 3000);
+            // let summary = "";
+            // // const summaries = [];
 
-        // for (let i = 0; i < chunks.length; i++) {
-        //     const currentText = summary + chunks[i];
-        //     summary = await do_summary(currentText);
-        //     // summaries.push(summary);
-        //     // concatenatedSummaries += summary;
-        // }
-        // return summary;
+            // for (let i = 0; i < chunks.length; i++) {
+            //     const currentText = summary + chunks[i];
+            //     summary = await do_summary(currentText);
+            //     // summaries.push(summary);
+            //     // concatenatedSummaries += summary;
+            // }
+            // return summary;
+        }
+        catch (error) {
+            console.error(`error in do_summary ${error || error.status}`);
+        }
     }
-    catch (error) {
-        console.error(`error in do_summary ${error || error.status}`);
-    }
+    
 }
 
 
@@ -152,6 +155,20 @@ async function do_analysis(repoLink, owner, repo) {
  * @param {object} item - {path:string,type:string}
  */
 async function recursive_analysis(item, owner, repo) {
+    //if the file should be ignored, we just do summary based on its path instead of content
+    if(item.type === "blob" || item.type === "file"){
+        for(let m =0; m < file_to_be_ignored.length; ++m){
+            if(item.path.includes(file_to_be_ignored[m])){
+                const summary = await do_summary(item.path);
+                console.log(`The file ${item.path} is ignored for content analysis`);
+                return {
+                    path: item.path,
+                    type:"file",
+                    summary:summary
+                }
+            }
+        }
+    }
     const response = await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
         owner: owner,
         repo: repo,
@@ -162,7 +179,6 @@ async function recursive_analysis(item, owner, repo) {
     });
 
     if (item.type === "blob" || item.type === "file") {
-
         //summarize the file's content
         const decodedContent = Buffer.from(response.data.content, 'base64').toString('utf-8');
         // const content = return await file_analysis(item.path, decodedContent);
