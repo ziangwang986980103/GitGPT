@@ -8,7 +8,7 @@ let functions = [
             "properties":{
                 "paths":{
                     "type":"array",
-                    "description":"array of paths to files and/or directories",
+                    "description":"array of paths to files and/or directories. the length of this array shouldn't be more than 5.",
                     "items":{
                         "type":"string"
                     }
@@ -30,7 +30,7 @@ let functions = [
             "properties": {
                 "paths": {
                     "type": "array",
-                    "description": "array of paths to files",
+                    "description": "array of paths to files.the length of this array shouldn't be more than 5.",
                     "items": {
                         "type": "string"
                     }

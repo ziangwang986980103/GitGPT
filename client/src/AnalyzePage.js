@@ -213,7 +213,7 @@ function AnalyzePage({ repoLink }) {
                     },
                     body: JSON.stringify({
                         sessionId: sessionId,
-                        question: question + `remember to include the sessionId if you call functions. sessionId: ${sessionId}`,
+                        question: question + ` \n remember to include the sessionId if you call functions. sessionId: ${sessionId}`,
                         link: repoLink
                     })
                 });
@@ -242,7 +242,7 @@ function AnalyzePage({ repoLink }) {
     }, [question]);
 
     if (loading){
-        return <p>This is the first time I am seeing this repo. I need to analyze it first. The analysis usually takes about 1 to 5 minutes.</p>;
+        return <p>Hey there! I'm not familiar with this repo just yet. Let me take a moment to analyze it. It typically takes around 1 to 5 minutes. Sit tight, and I'll be right back with some insights!😊</p>;
     } 
     if (error) return <p>Error: {error.message}</p>;
 

@@ -10,6 +10,8 @@ const openai = new OpenAI({
 });
 import { RecursiveCharacterTextSplitter } from "langchain/text_splitter"
 
+//TODO: think about a way to deal with the gpt api rate limit.
+
 function chunkify_text(text, chunkSize) {
     let startTime = performance.now();
     // create the chunks based only on fixed size
@@ -76,9 +78,15 @@ async function do_summary(text) {
             const results = await Promise.allSettled(promises);
             let successResults = results.filter((value, i) => { return value.status === "fulfilled" }).map((v, i) => { return JSON.stringify(v.value) });
             const concatenated = successResults.join();
+            if(concatenated === "" || concatenated === null) { 
+                concatenated = "the content is unavailable";
+            }
             const summary = await do_summary(concatenated);
             let endTime = performance.now();
             // console.log(`The text size is ${text.length} characters. The time of summary is ${(endTime - startTime) / 1000} seconds`);
+            if(summary === "" || summary === null){
+                summary = "The summary is unavailable. Infer it based on the path name.";
+            }
             return summary;
             //concatenated the previous summary to the current one
             // const chunks = await chunkify_text(text, 3000);
@@ -95,6 +103,7 @@ async function do_summary(text) {
         }
         catch (error) {
             console.error(`error in do_summary ${error || error.status}`);
+            return "the summary is unavailable. You should infer what it does based on the path name."
         }
     }
     
@@ -139,7 +148,7 @@ async function do_analysis(repoLink, owner, repo,verbose) {
         concatenated += JSON.stringify({
             path: item.value.path,
             type: item.value.type,
-            summary: (item.status === "fulfilled") ? item.value.summary : ""
+            summary: (item.status === "fulfilled") ? item.value.summary : "The summary is unavailable. You should infer it based on the path."
         }) + ",\n";
         return item.value;  // or whatever transformation you want to apply
     });
@@ -229,7 +238,7 @@ async function recursive_analysis(item, owner, repo,verbose) {
             concatenated += JSON.stringify({
                 path: item.value.path,
                 type: item.value.type,
-                summary: (item.status === "fulfilled") ? item.value.summary : ""
+                summary: (item.status === "fulfilled") ? item.value.summary : "The summary is unavailable. You should infer it based on the path."
             }) + ",\n";
             return item.value;  // or whatever transformation you want to apply
         });

@@ -21,8 +21,8 @@ import { createCipheriv } from "crypto";
 import path from "path";
 
 const MESSAGE_SUMMARY_WARNING_TOKEN = 10000;
-// const CHAT_MODEL = "gpt-3.5-turbo-16k";
-const CHAT_MODEL="gpt-4-32k";
+const CHAT_MODEL = "gpt-3.5-turbo-16k";
+// const CHAT_MODEL="gpt-4-32k";
 
 
 let redisClient;
@@ -229,10 +229,18 @@ app.post("/api/retrieve-code",async (req,res)=>{
 })
 
 
-async function summarize_messages_in_place(sessionId,repo_link,cutoff=null){
+async function summarize_messages_in_place(sessionId,repo_link,cutoff=null,first_time=false){
     //retrieve the conversation history from redis;
     let message_list = await redisClient.lRange(sessionId, 1, -1);
     message_list = message_list.map((value, index) => { return JSON.parse(value) });
+    //if the first time summarization still results in exceeding, we trim the message to half
+    if(!first_time){
+        for(let i = message_list.length-2; i >= 1; --i){
+            if(message_list[i].content){
+                message_list[i].content = message_list[i].content.substring(0, message_list[i].content.length / 2);
+            }
+        }
+    }
     // console.log(`message_list in summarize_messages_in_place before summarizing: ${message_list}`);
     let index = cutoff;
     if(index === null){
@@ -245,7 +253,7 @@ async function summarize_messages_in_place(sessionId,repo_link,cutoff=null){
             }
             index = index-1;
         }
-        index = Math.min(index,message_list.length-3);//keep the last two messages
+        index = Math.min(index, message_list.length - 3);//keep the last two messages
     }
 
     try{
@@ -310,9 +318,9 @@ async function get_ai_response(sessionId, model = CHAT_MODEL,function_call){
         // }
 
         // Catches for soft errors
-        if (!['stop', 'function_call'].includes(response.choices[0].finish_reason)) {
-            throw new Error(`API call finish with bad finish reason: ${JSON.stringify(response)}`);
-        }
+        // if (!['stop', 'function_call'].includes(response.choices[0].finish_reason)) {
+        //     throw new Error(`API call finish with bad finish reason: ${JSON.stringify(response)}`);
+        // }
 
         return response;
 
@@ -337,8 +345,8 @@ function packageFunctionResponse(wasSuccess, responseString, timestamp = null) {
 }
 
 function helper_search(paths,results,summary_object){
-    if(paths.includes(summary_object.path)){
-        results.push(summary_object);
+    if (paths.includes(summary_object.path) && summary_object.summary){
+        results.push(summary_object.summary);
     }
     if(summary_object.children){
         for (let m = 0; m < summary_object.children.length; ++m){
@@ -496,20 +504,24 @@ async function handle_ai_response(sessionId,response_message){
 
 /**
  * Top-level event message handler
+ * @param {string} sessionId 
+ * @param {string} repo_link
  * @param {string} user_message 
+ * @param {bool} first_message  -if this user_message is processed for the first time
+ * @param {bool} first_question -if this is the first question in the chat history
  */
-async function step(sessionId,repo_link,user_message,first_message=true){
+async function step(sessionId,repo_link,user_message,first_message=true,first_question=false){
     
     try{
         //step0: add user message if it's the first time it's seen
         if(first_message){
             await redisClient.rPush(sessionId, JSON.stringify({ role: "user", content: user_message }));
-        }
 
+        }
         
 
         //step1: send the conversation and available messages to gpt
-        const response = await get_ai_response(sessionId, "gpt-3.5-turbo-16k","auto");
+        const response = await get_ai_response(sessionId, CHAT_MODEL,"auto");
 
         //step2: check if the LLM wanted to call a function
         const response_message = response.choices[0].message;
@@ -522,7 +534,7 @@ async function step(sessionId,repo_link,user_message,first_message=true){
 
         //step 4: call the gpt again to create a second response if there is a function call
         if(response_message.function_call){
-            const second_response = await get_ai_response(sessionId, "gpt-3.5-turbo-16k","none");
+            const second_response = await get_ai_response(sessionId, CHAT_MODEL,"none");
             await redisClient.rPush(sessionId, JSON.stringify(second_response.choices[0].message));
             return second_response;
         }
@@ -536,7 +548,13 @@ async function step(sessionId,repo_link,user_message,first_message=true){
         //if we have a context length alert, we trim the messages length and try again
         if (error.error.message.includes('maximum context length')) {
             // A separate API call to run a summarizer
-            await summarize_messages_in_place(sessionId,repo_link);
+            if(first_message){
+                await summarize_messages_in_place(sessionId, repo_link, null, true);
+            }
+            else{
+                await summarize_messages_in_place(sessionId, repo_link, null, false);
+            }
+            
             // Try step again
             return await step(sessionId,repo_link,user_message,false);
         } else {
