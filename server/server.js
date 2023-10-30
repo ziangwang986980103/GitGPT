@@ -1,7 +1,7 @@
 import express, { json } from "express";
 import cors from "cors";
 import nlp from "compromise";
-import fs, { readSync } from "fs";
+import fs, { readSync} from "fs";
 import {do_analysis,do_summary} from "./do_analysis.js";
 import {encode} from "gpt-3-encoder";
 import Repo from "./model/repo_summary.js"
@@ -18,7 +18,8 @@ const openai = new OpenAI({
 import {v4 as uuidv4} from "uuid";
 import redis from 'redis';
 import { createCipheriv } from "crypto";
-import path from "path";
+import { fileURLToPath } from 'url';
+import path,{dirname} from "path";
 
 const MESSAGE_SUMMARY_WARNING_TOKEN = 10000;
 const CHAT_MODEL = "gpt-3.5-turbo-16k";
@@ -52,7 +53,11 @@ const port = 8000;
 const app = express();
 app.use(cors());
 app.use(express.json());
-app.use(express.static('public'));
+// app.use(express.static('public'));
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+app.use(express.static(path.join(__dirname, '../client/build')));
 
 
 /**
@@ -580,6 +585,10 @@ app.post('/api/answer-question', async (req, res) => {
     const response = await step(sessionId,repoLink,question);
     const answer = response.choices[0].message.content;
     return res.json(answer);
+});
+
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../client/build/index.html'));
 });
 
 app.listen(port, ()=>{

@@ -7,7 +7,9 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "client": "npm start --prefix client",
     "server": "npm start --prefix server",
-    "dev": "concurrently  \"npm run server\" \"npm run client\""
+    "dev": "concurrently  \"npm run server\" \"npm run client\"",
+    "build": "npm run build --prefix client",
+    "start:prod": "NODE_ENV=production npm run server"
   },
   "author": "",
   "license": "ISC",
@@ -21,6 +23,7 @@
     "madge": "^6.1.0",
     "redis": "^4.6.10",
     "redis-server": "^1.2.2",
+    "url": "^0.11.3",
     "uuid": "^9.0.1"
   }
 }
