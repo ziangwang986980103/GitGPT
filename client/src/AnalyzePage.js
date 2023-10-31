@@ -112,6 +112,7 @@ function AnalyzePage({ repoLink }) {
 
     return (
         <div>
+            
             {
                 history.map((interaction, index) => (
                     <div key={index} className={`message ${interaction.type}`}>

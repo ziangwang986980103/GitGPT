@@ -60,7 +60,15 @@ connection.once("open",()=>{
 
 // const port = 8000;
 const app = express();
-app.use(cors());
+// app.use(cors());
+const corsOptions = {
+    origin: ['http://localhost:3000', 'http://localhost:3000/GitGPT','https://ziangwang986980103.github.io'],
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    allowedHeaders: ['Content-type'],
+    credentials: true
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
 // app.use(express.static('public'));
 // const __filename = fileURLToPath(import.meta.url);
