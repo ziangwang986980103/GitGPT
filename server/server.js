@@ -213,6 +213,11 @@ app.post("/api/retrieve-code",async (req,res)=>{
         repo: repo,
         sessionId: sessionId
     })
+    if (job.id) {
+        console.log(`Job with ID ${job.id} has been added`);
+    } else {
+        console.log('Job was not added');
+    }
     return res.json({ status: "processing", sessionId:sessionId,jobId: job.id });
     // try{
     //     //search the db for the summary
@@ -648,6 +653,7 @@ app.post('/api/answer-question', async (req, res) => {
 app.get('/api/job-status/retrieve-code/:job_Id',async (req,res)=>{
     const job_Id = req.params.job_Id;
     const job = await bullQueue.getJob(job_Id);
+    console.log(`retrieve code job status: ${job.status}`);
     return res.json({status:job.status});
 });
 
