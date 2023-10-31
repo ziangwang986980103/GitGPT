@@ -654,7 +654,9 @@ app.get('/api/job-status/retrieve-code/:job_Id',async (req,res)=>{
     const job_Id = req.params.job_Id;
     const job = await bullQueue.getJob(job_Id);
     console.log(`retrieve code job: ${JSON.stringify(job)}`);
-    return res.json({status:job.status});
+    const status = await job.getState();
+    console.log("job status: ",status);
+    return res.json({status:status});
 });
 
 // app.get('*', (req, res) => {
