@@ -13,5 +13,8 @@ bullQueue.process(async (job)=>{
     else if(job.data.type === "answer_question"){
 
     }
+    else{
+        console.log(`The job's type is not identified: ${job}`);
+    }
 });
 

@@ -40,6 +40,7 @@ function AnalyzePage({ repoLink }) {
                 const jsonResponse = await response.json();
                 setJobId(jsonResponse.jobId);
                 setSessionId(jsonResponse.sessionId);
+                
                 // setResult(jsonResponse);
             } catch (error) {
                 setError(error);
@@ -57,7 +58,7 @@ function AnalyzePage({ repoLink }) {
     useEffect(()=>{
         let intervalId;
 
-        if (sessionId) {
+        if (sessionId&&jobId) {
             intervalId = setInterval(async () => {
                 try {
                     const response = await fetch(`https://protected-eyrie-72539-1196ab347705.herokuapp.com/api/job-status/retrieve-code/${jobId}`);
@@ -73,7 +74,7 @@ function AnalyzePage({ repoLink }) {
             }, 30000); // Poll every 30 seconds
         }
         return () => clearInterval(intervalId);
-    },[sessionId]);
+    },[sessionId,jobId]);
 
     
     useEffect(() => {
