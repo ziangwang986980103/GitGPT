@@ -16,13 +16,21 @@ function AnalyzePage({ repoLink }) {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const response = await fetch("http://localhost:8000/api/retrieve-code", {
+                // const response = await fetch("http://localhost:8000/api/retrieve-code", {
+                //     method: 'POST',
+                //     headers: {
+                //         'Content-type': 'application/json'
+                //     },
+                //     body: JSON.stringify({ link: repoLink })
+                // });
+                const response = await fetch("https://protected-eyrie-72539-1196ab347705.herokuapp.com/api/retrieve-code", {
                     method: 'POST',
                     headers: {
                         'Content-type': 'application/json'
                     },
                     body: JSON.stringify({ link: repoLink })
                 });
+                
 
                 if (!response.ok) {
                     throw new Error(`HTTP error! Status: ${response.status}`);
@@ -51,7 +59,18 @@ function AnalyzePage({ repoLink }) {
                 // Add a "loading" message for the answer
                 setHistory(prevHistory => [...prevHistory, { type: 'answer', content: "Loading..." }]);
 
-                const response = await fetch("http://localhost:8000/api/answer-question", {
+                // const response = await fetch("http://localhost:8000/api/answer-question", {
+                //     method: "POST",
+                //     headers: {
+                //         'Content-type': 'application/json'
+                //     },
+                //     body: JSON.stringify({
+                //         sessionId: sessionId,
+                //         question: question + ` \n remember to include the sessionId if you call functions. sessionId: ${sessionId}`,
+                //         link: repoLink
+                //     })
+                // });
+                const response = await fetch("https://protected-eyrie-72539-1196ab347705.herokuapp.com/api/answer-question", {
                     method: "POST",
                     headers: {
                         'Content-type': 'application/json'
