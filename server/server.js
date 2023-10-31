@@ -31,7 +31,13 @@ const CHAT_MODEL = "gpt-3.5-turbo-16k";
 let redisClient;
 
 (async () => {
-    redisClient = redis.createClient(process.env.REDIS_URL || 'localhost:6379');
+    if (process.env.REDIS_URL){
+        redisClient = redis.createClient(process.env.REDIS_URL);
+    }
+    else{
+        redisClient = redis.createClient();
+    }
+    
     
 
     redisClient.on("error", (error) => console.error(`Error : ${error}`));
