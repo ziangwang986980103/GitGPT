@@ -9,7 +9,7 @@ const octokit = new Octokit({ auth: process.env.GITHUB_PAT });
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API
 });
-import { RecursiveCharacterTextSplitter } from "langchain/text_splitter"
+// import { RecursiveCharacterTextSplitter } from "langchain/text_splitter"
 
 //TODO: think about a way to deal with the gpt api rate limit.
 
