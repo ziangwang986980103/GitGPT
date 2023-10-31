@@ -8,11 +8,24 @@ import './App.css';
 function App() {
   const [repoLink,setRepoLink] = useState("");
   
+  // return (
+  //   <Router>
+  //     <div>
+  //       <Routes>
+  //         <Route path="/" element={<Home setRepoLink={setRepoLink}/>} />
+  //         <Route
+  //           path="/analyze"
+  //           element={<AnalyzePage repoLink={repoLink} />}
+  //         />
+  //       </Routes>
+  //     </div>
+  //   </Router>
+  // );
   return (
-    <Router>
+    <Router basename="/GitGPT">
       <div>
         <Routes>
-          <Route path="/" element={<Home setRepoLink={setRepoLink}/>} />
+          <Route path="/" element={<Home setRepoLink={setRepoLink} />} />
           <Route
             path="/analyze"
             element={<AnalyzePage repoLink={repoLink} />}
