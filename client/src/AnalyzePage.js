@@ -12,7 +12,7 @@ function AnalyzePage({ repoLink }) {
     const [question, setQuestion] = useState("");
     const [history, setHistory] = useState([]);
     const [sessionId, setSessionId] = useState(null);
-    const [jobId,setJobId] = useState(null);
+    // const [jobId,setJobId] = useState(null);
     //TODO: add a check to see if it's local development envirionment or not. 
     useEffect(() => {
         const fetchData = async () => {
@@ -38,7 +38,7 @@ function AnalyzePage({ repoLink }) {
                 }
 
                 const jsonResponse = await response.json();
-                setJobId(jsonResponse.jobId);
+                // setJobId(jsonResponse.jobId);
                 setSessionId(jsonResponse.sessionId);
                 
                 // setResult(jsonResponse);
@@ -58,13 +58,13 @@ function AnalyzePage({ repoLink }) {
     useEffect(()=>{
         let intervalId;
 
-        if (sessionId&&jobId) {
+        if (sessionId) {
             intervalId = setInterval(async () => {
                 try {
-                    const response = await fetch(`https://protected-eyrie-72539-1196ab347705.herokuapp.com/api/job-status/retrieve-code/${jobId}`);
+                    const response = await fetch(`https://protected-eyrie-72539-1196ab347705.herokuapp.com/api/job-status/retrieve-code/${sessionId}`);
                     const data = await response.json();
 
-                    if (data.status === 'completed' || data.status === 'failed') {
+                    if (data.status === 'completed') {
                         setLoading(false);
                         clearInterval(intervalId);
                     }
@@ -74,7 +74,7 @@ function AnalyzePage({ repoLink }) {
             }, 30000); // Poll every 30 seconds
         }
         return () => clearInterval(intervalId);
-    },[sessionId,jobId]);
+    },[sessionId]);
 
     
     useEffect(() => {

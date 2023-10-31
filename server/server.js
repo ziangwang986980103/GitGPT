@@ -206,79 +206,81 @@ app.post("/api/retrieve-code",async (req,res)=>{
     //set it to expire in one hour
     await redisClient.expire(sessionId, 3600);
 
-    const job = await bullQueue.add({
-        type:'retrieve-code',
-        repoLink: repoLink,
-        owner: owner,
-        repo: repo,
-        sessionId: sessionId
-    });
-    if (job.id) {
-        console.log(`Job with ID ${job.id} has been added`);
-    } else {
-        console.log('Job was not added');
-    }
-    return res.json({ status: "processing", sessionId:sessionId,jobId: job.id });
-    // try{
-    //     //search the db for the summary
-    //     let repoAnalysis = await Repo.findOne({ path: repoLink });
-    //     if(!repoAnalysis){
-    //         // res.json({sessionId:sessionId,message:"This is the first time I have seen this repo. I will process it now. It may take some time..."});
-
-    //         const beginTime = performance.now();
-    //         repoAnalysis = await do_analysis(repoLink, owner, repo,true);
-    //         const endTime = performance.now();
-    //         console.log(repoAnalysis);
-    //         console.log("successfully do the repo_analysis");
-    //         console.log(`The analysis of the repo takes ${(endTime - beginTime) / 1000} seconds`);
-    //         fs.writeFileSync('output.txt', JSON.stringify(repoAnalysis, null, 2), 'utf8');
-    //         //store it back to the db
-    //         const newRepo = new Repo({
-    //             path:repoLink,
-    //             type:"dir",
-    //             summary:repoAnalysis.summary,
-    //             children:repoAnalysis.children
-    //         })
-    //         await newRepo.save();
-    //     }
-    //     let paths = [];
-    //     get_paths(repoAnalysis,paths);
-    //     //TODO: the sessionId is now added to the system message and we rely on chatgpt to recall it. Think of a better way to store it. 
-    //     const system_message_content = decorated_prompt(sessionId,paths);
-    //     const systemMessage = JSON.stringify({ role: "system", content: system_message_content });
-    //     await redisClient.rPush(sessionId, systemMessage, (err, listLength) => {
-    //         if (err) console.error(err);
-    //     });
-    //     await redisClient.expire(sessionId, 3600);
-    //     // console.log("retrieve the analysis from db");
-    //     //we will add a fake question to the chathistory
-    //     const fakeQustion = JSON.stringify({
-    //         role: "user", content: `Using the provided README.md content and list of directory / file paths from a GitHub repository, please:
-    //     - Summarize the repository's purpose based on the README.md and path names.
-    //     - Analyze each directory and file in the root, providing explanations or assumptions about their functionalities.`});
-
-    //     await redisClient.rPush(sessionId, fakeQustion, (err, listLength) => {
-    //         if (err) console.error(err);
-    //     });
-    //     await redisClient.expire(sessionId, 3600);
-    //     const response = {
-    //         summary: repoAnalysis.summary,
-    //         directories: repoAnalysis.children.filter((value,i)=>{return value.type ==="dir"}).map((value,i)=>{return {path:value.path,summary:value.summary}}),
-    //         files: repoAnalysis.children.filter((value, i) => { return value.type === "file" })
-    //     }
-
-    //     await redisClient.rPush(sessionId, JSON.stringify({ role: "assistant", content: JSON.stringify(response) }), (err) => {
-    //         if (err) console.error(err);
-    //     });
-    //     await redisClient.expire(sessionId, 3600);
-    //     const messages = await redisClient.lRange(sessionId, 1,-1);
-    //     await redisClient.expire(sessionId, 3600);
-    //     // console.log(`Message_list in the retrieve code: ${messages}`);
-    //     response.sessionId = sessionId;
-    //     return res.json(response);
-    // }catch(error){
-    //     console.error(`error in do_analysis in retrieve_code: ${error||error.status}`);
+    // const job = await bullQueue.add({
+    //     type:'retrieve-code',
+    //     repoLink: repoLink,
+    //     owner: owner,
+    //     repo: repo,
+    //     sessionId: sessionId
+    // });
+    // if (job.id) {
+    //     console.log(`Job with ID ${job.id} has been added`);
+    // } else {
+    //     console.log('Job was not added');
     // }
+    res.json({ status: "processing", sessionId:sessionId});
+
+    try{
+        //search the db for the summary
+        let repoAnalysis = await Repo.findOne({ path: repoLink });
+        if(!repoAnalysis){
+            // res.json({sessionId:sessionId,message:"This is the first time I have seen this repo. I will process it now. It may take some time..."});
+
+            const beginTime = performance.now();
+            repoAnalysis = await do_analysis(repoLink, owner, repo,true);
+            const endTime = performance.now();
+            console.log(repoAnalysis);
+            console.log("successfully do the repo_analysis");
+            console.log(`The analysis of the repo takes ${(endTime - beginTime) / 1000} seconds`);
+            fs.writeFileSync('output.txt', JSON.stringify(repoAnalysis, null, 2), 'utf8');
+            //store it back to the db
+            const newRepo = new Repo({
+                path:repoLink,
+                type:"dir",
+                summary:repoAnalysis.summary,
+                children:repoAnalysis.children
+            })
+            await newRepo.save();
+        }
+        let paths = [];
+        get_paths(repoAnalysis,paths);
+        //TODO: the sessionId is now added to the system message and we rely on chatgpt to recall it. Think of a better way to store it. 
+        const system_message_content = decorated_prompt(sessionId,paths);
+        const systemMessage = JSON.stringify({ role: "system", content: system_message_content });
+        await redisClient.rPush(sessionId, systemMessage, (err, listLength) => {
+            if (err) console.error(err);
+        });
+        await redisClient.expire(sessionId, 3600);
+        // console.log("retrieve the analysis from db");
+        //we will add a fake question to the chathistory
+        const fakeQustion = JSON.stringify({
+            role: "user", content: `Using the provided README.md content and list of directory / file paths from a GitHub repository, please:
+        - Summarize the repository's purpose based on the README.md and path names.
+        - Analyze each directory and file in the root, providing explanations or assumptions about their functionalities.`});
+
+        await redisClient.rPush(sessionId, fakeQustion, (err, listLength) => {
+            if (err) console.error(err);
+        });
+        await redisClient.expire(sessionId, 3600);
+        const response = {
+            summary: repoAnalysis.summary,
+            directories: repoAnalysis.children.filter((value,i)=>{return value.type ==="dir"}).map((value,i)=>{return {path:value.path,summary:value.summary}}),
+            files: repoAnalysis.children.filter((value, i) => { return value.type === "file" })
+        }
+
+        await redisClient.rPush(sessionId, JSON.stringify({ role: "assistant", content: JSON.stringify(response) }), (err) => {
+            if (err) console.error(err);
+        });
+        await redisClient.expire(sessionId, 3600);
+
+        // const messages = await redisClient.lRange(sessionId, 1,-1);
+        // await redisClient.expire(sessionId, 3600);
+        // // console.log(`Message_list in the retrieve code: ${messages}`);
+        // response.sessionId = sessionId;
+        // return res.json(response);
+    }catch(error){
+        console.error(`error in do_analysis in retrieve_code: ${error||error.status}`);
+    }
 })
 
 
@@ -650,13 +652,15 @@ app.post('/api/answer-question', async (req, res) => {
 });
 
 
-app.get('/api/job-status/retrieve-code/:job_Id',async (req,res)=>{
-    const job_Id = req.params.job_Id;
-    const job = await bullQueue.getJob(job_Id);
-    console.log(`retrieve code job: ${JSON.stringify(job)}`);
-    const status = await job.getState();
-    console.log("job status: ",status);
-    return res.json({status:status});
+app.get('/api/job-status/retrieve-code/:sessionId',async (req,res)=>{
+    const sessionId = req.params.sessionId;
+    const messages = await redisClient.lRange(sessionId,0,-1);
+    if(messages.length >= 2){
+        return res.json({status:"completed"});
+    }
+    else{
+        return res.json({ status: "failed" });
+    }
 });
 
 // app.get('*', (req, res) => {
