@@ -8,7 +8,8 @@ import Repo from "./model/repo_summary.js"
 import functions from "./Prompts/functions.js";
 import decorated_prompt from './Prompts/systems/gpt_doc.js'
 import { Octokit } from "@octokit/rest";
-import { process } from './env.js'
+// import { process } from './env.js'
+import 'dotenv/config';
 import OpenAI, { NotFoundError } from 'openai';
 import mongoose from "mongoose";
 const octokit = new Octokit({ auth: process.env.GITHUB_PAT });

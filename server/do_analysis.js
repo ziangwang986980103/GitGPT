@@ -1,6 +1,7 @@
 import fs from "fs";
 import { Octokit } from "@octokit/rest";
-import { process } from './env.js';
+// import { process } from './env.js';
+import 'dotenv/config';
 import file_to_be_ignored from "./Prompts/ignore.js";
 import prompt_summarize from './Prompts/gpt_summarize.js';
 import OpenAI, { NotFoundError } from 'openai';
