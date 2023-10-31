@@ -7,6 +7,7 @@ import bullQueue from "./queue";
 
 bullQueue.process(async (job)=>{
     if(job.data.type === "retrieve-code"){
+        console.log("processing the retrieve-code job");
         await handle_retrieve_code(job.data);
 
     }

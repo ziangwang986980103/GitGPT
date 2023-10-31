@@ -49,6 +49,7 @@ function get_paths(repo_analysis, paths) {
 
 export async function handle_retrieve_code(data) {
     const { repoLink, owner, repo, sessionId } = data;
+    console.log("enter the handle_retrieve_code function");
     try {
         //search the db for the summary
         let repoAnalysis = await Repo.findOne({ path: repoLink });
@@ -71,6 +72,7 @@ export async function handle_retrieve_code(data) {
             })
             await newRepo.save();
         }
+        console.log("finsiht repo analysis");
         let paths = [];
         get_paths(repoAnalysis, paths);
         //TODO: the sessionId is now added to the system message and we rely on chatgpt to recall it. Think of a better way to store it. 
