@@ -13,6 +13,7 @@ import 'dotenv/config';
 import OpenAI, { NotFoundError } from 'openai';
 import mongoose from "mongoose";
 const octokit = new Octokit({ auth: process.env.GITHUB_PAT });
+
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API 
 });
