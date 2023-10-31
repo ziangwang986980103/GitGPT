@@ -24,6 +24,7 @@ import redis from 'redis';
 import { createCipheriv } from "crypto";
 import { fileURLToPath } from 'url';
 import path,{dirname} from "path";
+import { isGeneratorFunction } from "util/types";
 // import {Server} from "socket.io";
 // import http from "http";
 
@@ -645,10 +646,11 @@ app.post('/api/answer-question', async (req, res) => {
         // Handle the case where sessionId has expired or doesn't exist
         return res.status(404).json({ error: "Session has expired or doesn't exist" });
     }
-
+    const question_id = uuidv4();
+    res.json({status:"processing"});
     const response = await step(sessionId,repoLink,question);
-    const answer = response.choices[0].message.content;
-    return res.json(answer);
+    // const answer = response.choices[0].message.content;
+    // return res.json(answer);
 });
 
 
@@ -660,6 +662,19 @@ app.get('/api/job-status/retrieve-code/:sessionId',async (req,res)=>{
     }
     else{
         return res.json({ status: "failed" });
+    }
+});
+
+app.get(`/api/job-status/answer_question/:sessionId`,async (req,res)=>{
+    const sessionId = req.params.sessionId;
+    // const question_id = req.params.question_id;
+    let last_message = await redisClient.lRange(sessionId,-1,-1);
+    last_message = JSON.parse(last_message[0]);
+    if(last_message.role === "assistant"){
+        return res.json({status:"completed",content:last_message.content});
+    }
+    else{
+        return res.json({status:"processing"});
     }
 });
 

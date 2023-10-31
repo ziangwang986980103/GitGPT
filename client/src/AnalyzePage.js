@@ -12,6 +12,7 @@ function AnalyzePage({ repoLink }) {
     const [question, setQuestion] = useState("");
     const [history, setHistory] = useState([]);
     const [sessionId, setSessionId] = useState(null);
+    const [answerStatus,setAnswerStatus] = useState(0);
     // const [jobId,setJobId] = useState(null);
     //TODO: add a check to see if it's local development envirionment or not. 
     useEffect(() => {
@@ -78,6 +79,7 @@ function AnalyzePage({ repoLink }) {
 
     
     useEffect(() => {
+        let intervalId;
         const answer_question = async () => {
             try {
                 // Add question to history
@@ -113,14 +115,35 @@ function AnalyzePage({ repoLink }) {
                     throw new Error(`HTTP error! Status: ${response.status}`);
                 }
 
-                const jsonResponse = await response.json();
+                
+                // const jsonResponse = await response.json();
+                
+                intervalId = setInterval(async () => {
+                    try {
+                        const response = await fetch(`https://protected-eyrie-72539-1196ab347705.herokuapp.com/api/job-status/answer_question/${sessionId}`);
+                        const data = await response.json();
 
+                        if (data.status === 'completed') {
+                            // setLoading(false);
+                            setHistory(prevHistory => {
+                                let updatedHistory = [...prevHistory];
+                                updatedHistory[updatedHistory.length - 1].content = data.content;
+                                return updatedHistory;
+                            });
+                            clearInterval(intervalId);
+                        }
+                    } catch (error) {
+                        console.error("Error checking job status:", error);
+                    }
+                }, 5000); // Poll every 5 seconds
+
+                
                 // Replace "loading" with the actual answer
-                setHistory(prevHistory => {
-                    let updatedHistory = [...prevHistory];
-                    updatedHistory[updatedHistory.length - 1].content = jsonResponse;
-                    return updatedHistory;
-                });
+                // setHistory(prevHistory => {
+                //     let updatedHistory = [...prevHistory];
+                //     updatedHistory[updatedHistory.length - 1].content = jsonResponse;
+                //     return updatedHistory;
+                // });
             }
             catch (error) {
                 setError(error);
@@ -130,7 +153,10 @@ function AnalyzePage({ repoLink }) {
         if (question) {
             answer_question();
         }
+        return () => clearInterval(intervalId);
     }, [question]);
+
+
 
     if (loading){
         return <p>Hey there! I'm not familiar with this repo just yet. Let me take a moment to analyze it. It typically takes around 1 to 5 minutes. Sit tight, and I'll be right back with some insights!😊</p>;
