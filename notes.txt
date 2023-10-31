@@ -1,0 +1,3 @@
+1. remember to add a check for the analyzepage.js to see if it's local development environment, so it will choose to send the
+   api request to the localhost or the heroku server
+2. always test in the local envrionment before deploying the client to github pages and the server to heroku
