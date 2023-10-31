@@ -12,7 +12,7 @@ function AnalyzePage({ repoLink }) {
     const [question, setQuestion] = useState("");
     const [history, setHistory] = useState([]);
     const [sessionId, setSessionId] = useState(null);
-
+    //TODO: add a check to see if it's local development envirionment or not. 
     useEffect(() => {
         const fetchData = async () => {
             try {
