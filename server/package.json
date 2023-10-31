@@ -16,6 +16,7 @@
   "license": "ISC",
   "dependencies": {
     "@octokit/rest": "^20.0.2",
+    "bull": "^4.11.4",
     "compromise": "^14.10.0",
     "concurrently": "^8.2.2",
     "cors": "^2.8.5",
@@ -26,12 +27,14 @@
     "gpt-3-encoder": "^1.1.4",
     "graphvis": "^0.0.1",
     "graphviz": "^0.0.9",
+    "http": "^0.0.1-security",
     "mongodb": "^6.1.0",
     "mongoose": "^7.6.4",
     "openai": "^4.11.1",
     "path": "^0.12.7",
     "redis": "^4.6.10",
     "redis-server": "^1.2.2",
+    "socket.io": "^4.7.2",
     "url": "^0.11.3",
     "uuid": "^9.0.1"
   }

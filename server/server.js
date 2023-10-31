@@ -12,6 +12,8 @@ import { Octokit } from "@octokit/rest";
 import 'dotenv/config';
 import OpenAI, { NotFoundError } from 'openai';
 import mongoose from "mongoose";
+import bullQueue from "./worker/queue.js";
+
 const octokit = new Octokit({ auth: process.env.GITHUB_PAT });
 
 const openai = new OpenAI({
@@ -22,6 +24,8 @@ import redis from 'redis';
 import { createCipheriv } from "crypto";
 import { fileURLToPath } from 'url';
 import path,{dirname} from "path";
+// import {Server} from "socket.io";
+// import http from "http";
 
 const MESSAGE_SUMMARY_WARNING_TOKEN = 10000;
 const CHAT_MODEL = "gpt-3.5-turbo-16k";
@@ -29,34 +33,43 @@ const CHAT_MODEL = "gpt-3.5-turbo-16k";
 
 
 let redisClient;
-
-(async () => {
-    if (process.env.REDIS_URL){
-        redisClient = redis.createClient({ url: process.env.REDIS_URL });
-    }
-    else{
-        redisClient = redis.createClient();
+export async function initialize_redis(){
+    if(!redisClient){
+        if (process.env.REDIS_URL) {
+            redisClient = redis.createClient({ url: process.env.REDIS_URL });
+        }
+        else {
+            redisClient = redis.createClient();
+        }
+        redisClient.on("error", (error) => console.error(`Error : ${error}`));
+        await redisClient.connect();
     }
     
-    
+    return redisClient;
+}
+async function init() {
+    redisClient = await initialize_redis();
+    console.log('Redis initialized');
+}
+init();
 
-    redisClient.on("error", (error) => console.error(`Error : ${error}`));
 
-    await redisClient.connect();
-})();
 
 const URI = process.env.MONGODB_URI;
-
 mongoose.connect(URI,{
     useNewUrlParser:true,
     useUnifiedTopology:true,
 });
-
 const connection = mongoose.connection;
 connection.once("open",()=>{
     console.log("connect to the mongodb successfully");
 })
 
+//TODO: When the request takes more than 30 second, there will be time out error on heroku. 
+//Consider the following solutions:
+//1.Background Jobs: Instead of processing the request synchronously, you can offload the long - running task to a background worker using tools like Sidekiq (for Ruby), Celery(for Python), or Bull(for Node.js).The main idea is that your web request will only enqueue a job to be processed, and then immediately respond to the client.The background worker will then pick up and process the job separately.This way, the client isn't waiting for the actual processing to complete.
+//2.WebSockets: Instead of traditional HTTP requests, you can use WebSockets, which allow for a persistent connection between the client and server.This way, you can start a task on the server and then send updates to the client over the WebSocket connection as the task progresses.Heroku supports WebSocket connections, but they aren't bound by the 30-second rule.
+//3.Polling: You can implement a polling mechanism where the client sends a request to start a long - running task, gets an immediate response, and then periodically checks back to see if the task is complete.
 
 // const port = 8000;
 const app = express();
@@ -70,11 +83,7 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 app.use(express.json());
-// app.use(express.static('public'));
-// const __filename = fileURLToPath(import.meta.url);
-// const __dirname = dirname(__filename);
 
-// app.use(express.static(path.join(__dirname, '../client/build')));
 
 
 /**
@@ -117,6 +126,7 @@ async function chatCompletion(sessionId, model = CHAT_MODEL,functions=null,funct
     let historyList;
     try{
         historyList = await redisClient.lRange(sessionId, 0, -1);
+        await redisClient.expire(sessionId, 3600);
         historyList =historyList.map((value,index)=>{return JSON.parse(value)});
     }catch(err){
         console.error("Error in get the history list ",err);
@@ -181,6 +191,8 @@ function get_paths(repo_analysis,paths){
 }
 
 
+
+
 /**
  * Receive the initial request from the user. Send back the initial analysis of the repo, and store the analysis into the database.
  */
@@ -191,69 +203,84 @@ app.post("/api/retrieve-code",async (req,res)=>{
     const sessionId = uuidv4();
     //store the repoLink into the redis
     await redisClient.rPush(sessionId, repoLink);
-    
-    try{
-        //search the db for the summary
-        let repoAnalysis = await Repo.findOne({ path: repoLink });
-        if(!repoAnalysis){
-            // res.json({sessionId:sessionId,message:"This is the first time I have seen this repo. I will process it now. It may take some time..."});
+    //set it to expire in one hour
+    await redisClient.expire(sessionId, 3600);
 
-            const beginTime = performance.now();
-            repoAnalysis = await do_analysis(repoLink, owner, repo,true);
-            const endTime = performance.now();
-            console.log(repoAnalysis);
-            console.log("successfully do the repo_analysis");
-            console.log(`The analysis of the repo takes ${(endTime - beginTime) / 1000} seconds`);
-            fs.writeFileSync('output.txt', JSON.stringify(repoAnalysis, null, 2), 'utf8');
-            //store it back to the db
-            const newRepo = new Repo({
-                path:repoLink,
-                type:"dir",
-                summary:repoAnalysis.summary,
-                children:repoAnalysis.children
-            })
-            await newRepo.save();
-        }
-        let paths = [];
-        get_paths(repoAnalysis,paths);
-        //TODO: the sessionId is now added to the system message and we rely on chatgpt to recall it. Think of a better way to store it. 
-        const system_message_content = decorated_prompt(sessionId,paths);
-        const systemMessage = JSON.stringify({ role: "system", content: system_message_content });
-        await redisClient.rPush(sessionId, systemMessage, (err, listLength) => {
-            if (err) console.error(err);
-        });
-        // console.log("retrieve the analysis from db");
-        //we will add a fake question to the chathistory
-        const fakeQustion = JSON.stringify({
-            role: "user", content: `Using the provided README.md content and list of directory / file paths from a GitHub repository, please:
-        - Summarize the repository's purpose based on the README.md and path names.
-        - Analyze each directory and file in the root, providing explanations or assumptions about their functionalities.`});
+    const job = await bullQueue.add({
+        type:'retrieve-code',
+        repoLink: repoLink,
+        owner: owner,
+        repo: repo,
+        sessionId: sessionId
+    })
+    return res.json({ status: "processing", sessionId:sessionId,jobId: job.id });
+    // try{
+    //     //search the db for the summary
+    //     let repoAnalysis = await Repo.findOne({ path: repoLink });
+    //     if(!repoAnalysis){
+    //         // res.json({sessionId:sessionId,message:"This is the first time I have seen this repo. I will process it now. It may take some time..."});
 
-        await redisClient.rPush(sessionId, fakeQustion, (err, listLength) => {
-            if (err) console.error(err);
-        });
-        const response = {
-            summary: repoAnalysis.summary,
-            directories: repoAnalysis.children.filter((value,i)=>{return value.type ==="dir"}).map((value,i)=>{return {path:value.path,summary:value.summary}}),
-            files: repoAnalysis.children.filter((value, i) => { return value.type === "file" })
-        }
+    //         const beginTime = performance.now();
+    //         repoAnalysis = await do_analysis(repoLink, owner, repo,true);
+    //         const endTime = performance.now();
+    //         console.log(repoAnalysis);
+    //         console.log("successfully do the repo_analysis");
+    //         console.log(`The analysis of the repo takes ${(endTime - beginTime) / 1000} seconds`);
+    //         fs.writeFileSync('output.txt', JSON.stringify(repoAnalysis, null, 2), 'utf8');
+    //         //store it back to the db
+    //         const newRepo = new Repo({
+    //             path:repoLink,
+    //             type:"dir",
+    //             summary:repoAnalysis.summary,
+    //             children:repoAnalysis.children
+    //         })
+    //         await newRepo.save();
+    //     }
+    //     let paths = [];
+    //     get_paths(repoAnalysis,paths);
+    //     //TODO: the sessionId is now added to the system message and we rely on chatgpt to recall it. Think of a better way to store it. 
+    //     const system_message_content = decorated_prompt(sessionId,paths);
+    //     const systemMessage = JSON.stringify({ role: "system", content: system_message_content });
+    //     await redisClient.rPush(sessionId, systemMessage, (err, listLength) => {
+    //         if (err) console.error(err);
+    //     });
+    //     await redisClient.expire(sessionId, 3600);
+    //     // console.log("retrieve the analysis from db");
+    //     //we will add a fake question to the chathistory
+    //     const fakeQustion = JSON.stringify({
+    //         role: "user", content: `Using the provided README.md content and list of directory / file paths from a GitHub repository, please:
+    //     - Summarize the repository's purpose based on the README.md and path names.
+    //     - Analyze each directory and file in the root, providing explanations or assumptions about their functionalities.`});
 
-        await redisClient.rPush(sessionId, JSON.stringify({ role: "assistant", content: JSON.stringify(response) }), (err) => {
-            if (err) console.error(err);
-        });
-        const messages = await redisClient.lRange(sessionId, 1,-1);
-        // console.log(`Message_list in the retrieve code: ${messages}`);
-        response.sessionId = sessionId;
-        return res.json(response);
-    }catch(error){
-        console.error(`error in do_analysis in retrieve_code: ${error||error.status}`);
-    }
+    //     await redisClient.rPush(sessionId, fakeQustion, (err, listLength) => {
+    //         if (err) console.error(err);
+    //     });
+    //     await redisClient.expire(sessionId, 3600);
+    //     const response = {
+    //         summary: repoAnalysis.summary,
+    //         directories: repoAnalysis.children.filter((value,i)=>{return value.type ==="dir"}).map((value,i)=>{return {path:value.path,summary:value.summary}}),
+    //         files: repoAnalysis.children.filter((value, i) => { return value.type === "file" })
+    //     }
+
+    //     await redisClient.rPush(sessionId, JSON.stringify({ role: "assistant", content: JSON.stringify(response) }), (err) => {
+    //         if (err) console.error(err);
+    //     });
+    //     await redisClient.expire(sessionId, 3600);
+    //     const messages = await redisClient.lRange(sessionId, 1,-1);
+    //     await redisClient.expire(sessionId, 3600);
+    //     // console.log(`Message_list in the retrieve code: ${messages}`);
+    //     response.sessionId = sessionId;
+    //     return res.json(response);
+    // }catch(error){
+    //     console.error(`error in do_analysis in retrieve_code: ${error||error.status}`);
+    // }
 })
 
 
 async function summarize_messages_in_place(sessionId,repo_link,cutoff=null,first_time=false){
     //retrieve the conversation history from redis;
     let message_list = await redisClient.lRange(sessionId, 1, -1);
+    await redisClient.expire(sessionId, 3600);
     message_list = message_list.map((value, index) => { return JSON.parse(value) });
     //if the first time summarization still results in exceeding, we trim the message to half
     if(!first_time){
@@ -308,6 +335,7 @@ async function summarize_messages_in_place(sessionId,repo_link,cutoff=null,first
         for (let message of message_list) {
             await redisClient.rPush(sessionId, JSON.stringify(message));
         }
+        await redisClient.expire(sessionId, 3600);
 
     } catch (error) {
         // Handle any errors
@@ -325,6 +353,7 @@ async function summarize_messages_in_place(sessionId,repo_link,cutoff=null,first
 async function get_ai_response(sessionId, model = CHAT_MODEL,function_call){
     try{
         let message_list = await redisClient.lRange(sessionId, 1, -1);
+        await redisClient.expire(sessionId, 3600);
         // console.log(`messages_list in get_ai_response: ${message_list}`);
         message_list = message_list.map((value, index) => { return JSON.parse(value) });
         // console.log(`messages_list in get_ai_response: ${message_list}`);
@@ -384,6 +413,7 @@ async function database_search(json_object){
     try{
         //the repo_link is an array because it's retrieved by the lRnage function
         let repo_link = await redisClient.lRange(sessionId, 0, 0);
+        await redisClient.expire(sessionId, 3600);
         repo_link = repo_link[0];
         const summary_object = await Repo.findOne({path:repo_link});
         if (!summary_object) {
@@ -405,6 +435,7 @@ async function code_search(json_object){
     console.log(`Search in code(Github) for the paths: ${paths}`);
     let promises = [];
     const repo_link = await redisClient.lRange(sessionId, 0, 0);
+    await redisClient.expire(sessionId, 3600);
     //the repo_link is an array because it's retrieved by the lRnage function
     const [owner,repo] = owner_repo(repo_link[0]);
     try{
@@ -451,7 +482,7 @@ async function handle_ai_response(sessionId,response_message){
 
         //extend the message_list with the assistant's reply 
         await redisClient.rPush(sessionId, JSON.stringify(response_message));
-
+        await redisClient.expire(sessionId, 3600);
         const available_functions ={
             "database_search":database_search,
             "code_search":code_search
@@ -538,6 +569,7 @@ async function step(sessionId,repo_link,user_message,first_message=true,first_qu
         //step0: add user message if it's the first time it's seen
         if(first_message){
             await redisClient.rPush(sessionId, JSON.stringify({ role: "user", content: user_message }));
+            await redisClient.expire(sessionId, 3600);
 
         }
         
@@ -553,11 +585,13 @@ async function step(sessionId,repo_link,user_message,first_message=true,first_qu
         all_response_messages.forEach(async (message,i)=>{
             await redisClient.rPush(sessionId, JSON.stringify(message));
         });
+        await redisClient.expire(sessionId, 3600);
 
         //step 4: call the gpt again to create a second response if there is a function call
         if(response_message.function_call){
             const second_response = await get_ai_response(sessionId, CHAT_MODEL,"none");
             await redisClient.rPush(sessionId, JSON.stringify(second_response.choices[0].message));
+            await redisClient.expire(sessionId, 3600);
             return second_response;
         }
         else{
@@ -598,10 +632,23 @@ app.post('/api/answer-question', async (req, res) => {
     const repoLink = req.body.link;
     // const [owner, repo] = owner_repo(repoLink);
     const sessionId = req.body.sessionId;
-    
+
+    const exists = await redisClient.exists(sessionId);
+    if (!exists) {
+        // Handle the case where sessionId has expired or doesn't exist
+        return res.status(404).json({ error: "Session has expired or doesn't exist" });
+    }
+
     const response = await step(sessionId,repoLink,question);
     const answer = response.choices[0].message.content;
     return res.json(answer);
+});
+
+
+app.get('/api/job-status/retrieve-code/:job_Id',async (req,res)=>{
+    const job_Id = req.params.job_Id;
+    const job = await bullQueue.getJob(job_Id);
+    return res.json({status:job.status});
 });
 
 // app.get('*', (req, res) => {

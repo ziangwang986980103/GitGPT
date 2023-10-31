@@ -6,12 +6,13 @@ import './AnalyzePage.css';
 
 function AnalyzePage({ repoLink }) {
     console.log('repoLink:', repoLink);
-    const [result, setResult] = useState(null);
+    // const [result, setResult] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [question, setQuestion] = useState("");
     const [history, setHistory] = useState([]);
     const [sessionId, setSessionId] = useState(null);
+    const [jobId,setJobId] = useState(null);
     //TODO: add a check to see if it's local development envirionment or not. 
     useEffect(() => {
         const fetchData = async () => {
@@ -37,17 +38,42 @@ function AnalyzePage({ repoLink }) {
                 }
 
                 const jsonResponse = await response.json();
+                setJobId(jsonResponse.jobId);
                 setSessionId(jsonResponse.sessionId);
-                setResult(jsonResponse);
+                // setResult(jsonResponse);
             } catch (error) {
                 setError(error);
-            } finally {
-                setLoading(false);
             }
+            // } finally {
+            //     setLoading(false);
+            // }
         };
 
         fetchData();
     }, [repoLink]);
+
+
+    //add error handler here
+    useEffect(()=>{
+        let intervalId;
+
+        if (sessionId) {
+            intervalId = setInterval(async () => {
+                try {
+                    const response = await fetch(`https://protected-eyrie-72539-1196ab347705.herokuapp.com/api/job-status/retrieve-code/${jobId}`);
+                    const data = await response.json();
+
+                    if (data.status === 'completed' || data.status === 'failed') {
+                        setLoading(false);
+                        clearInterval(intervalId);
+                    }
+                } catch (error) {
+                    console.error("Error checking job status:", error);
+                }
+            }, 30000); // Poll every 30 seconds
+        }
+        return () => clearInterval(intervalId);
+    },[sessionId]);
 
     
     useEffect(() => {
