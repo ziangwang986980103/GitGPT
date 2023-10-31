@@ -112,7 +112,9 @@ function AnalyzePage({ repoLink }) {
 
     return (
         <div>
-            
+            <div className="header">
+                <a href={repoLink} target="_blank" rel="noopener noreferrer">{repoLink}</a>
+            </div>
             {
                 history.map((interaction, index) => (
                     <div key={index} className={`message ${interaction.type}`}>
