@@ -32,7 +32,7 @@ let redisClient;
 
 (async () => {
     if (process.env.REDIS_URL){
-        redisClient = redis.createClient(process.env.REDIS_URL);
+        redisClient = redis.createClient({ url: process.env.REDIS_URL });
     }
     else{
         redisClient = redis.createClient();
