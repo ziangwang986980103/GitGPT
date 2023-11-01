@@ -3,7 +3,7 @@
     top: 0;
     left: 0;
     width: 100%;
-    background-color: hsl(0, 2%, 19%)d9d; 
+    background-color: hsla(39, 47%, 83%, 0.955); 
     color: #010101; 
     padding: 10px 0;
     text-align: center;
@@ -32,7 +32,7 @@ body {
     /* Adjusted padding to accommodate the height of the Inputbox */
 }
 .message:first-child {
-    margin-top: 200px;
+    margin-top: 300px;
 }
 .message {
     padding: 8px 0;
