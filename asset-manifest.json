@@ -1,15 +1,15 @@
 {
   "files": {
-    "main.css": "/GitGPT/static/css/main.50e504a1.css",
+    "main.css": "/GitGPT/static/css/main.eb13b680.css",
     "main.js": "/GitGPT/static/js/main.abc6a0e6.js",
     "static/js/787.01c15d3b.chunk.js": "/GitGPT/static/js/787.01c15d3b.chunk.js",
     "index.html": "/GitGPT/index.html",
-    "main.50e504a1.css.map": "/GitGPT/static/css/main.50e504a1.css.map",
+    "main.eb13b680.css.map": "/GitGPT/static/css/main.eb13b680.css.map",
     "main.abc6a0e6.js.map": "/GitGPT/static/js/main.abc6a0e6.js.map",
     "787.01c15d3b.chunk.js.map": "/GitGPT/static/js/787.01c15d3b.chunk.js.map"
   },
   "entrypoints": [
-    "static/css/main.50e504a1.css",
+    "static/css/main.eb13b680.css",
     "static/js/main.abc6a0e6.js"
   ]
 }
