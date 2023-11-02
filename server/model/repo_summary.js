@@ -14,7 +14,7 @@ const repoSchema = new Schema({
     },
     summary: {
         type: String,
-        required: true
+        required: false
     },
     // children will be added in the next step
 });
