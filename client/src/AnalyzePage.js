@@ -106,7 +106,7 @@ function AnalyzePage({ repoLink }) {
                     },
                     body: JSON.stringify({
                         sessionId: sessionId,
-                        question: question + ` \n remember to include the sessionId if you call functions. sessionId: ${sessionId}`,
+                        question: question,
                         link: repoLink
                     })
                 });
