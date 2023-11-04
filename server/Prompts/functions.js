@@ -12,11 +12,11 @@ let functions = [
                     "items":{
                         "type":"string"
                     }
-                },
-                "sessionId":{
-                    "type":"string",
-                    "description":"the sessionId in the initial system message"
                 }
+                // "sessionId":{
+                //     "type":"string",
+                //     "description":"the sessionId in the initial system message"
+                // }
             }
         }
     },
@@ -34,11 +34,11 @@ let functions = [
                     "items": {
                         "type": "string"
                     }
-                },
-                "sessionId": {
-                    "type": "string",
-                    "description": "the sessionId in the initial system message"
                 }
+                // "sessionId": {
+                //     "type": "string",
+                //     "description": "the sessionId in the initial system message"
+                // }
             }
         }
     }

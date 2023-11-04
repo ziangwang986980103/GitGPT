@@ -12,8 +12,6 @@ function decorated_prompt(sessionId, paths){
                         from this list: ${paths} . Somtimes the user may give incomplete or even wrong names of the files and directories, you need to infer which one to choose and make sure to choose from the path list to 
                         get valid answer.
 
-                        SessionId: 
-                        In order to call the functions, you will use a sessionId. Remember to pass this sessionId to the functions if they need it as an argument. The sessionId is: ${sessionId}
 `;
     return system_prompt;
 }

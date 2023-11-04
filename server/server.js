@@ -414,65 +414,73 @@ function helper_search(paths,results,summary_object){
     }
 }
 
-async function database_search(json_object){
-    const paths = json_object.paths;
-    const sessionId = json_object.sessionId;
-    console.log(`Search in database for the paths: ${paths}`);
-    try{
-        //the repo_link is an array because it's retrieved by the lRnage function
-        let repo_link = await redisClient.lRange(sessionId, 0, 0);
-        await redisClient.expire(sessionId, 3600);
-        repo_link = repo_link[0];
-        const summary_object = await Repo.findOne({path:repo_link});
-        if (!summary_object) {
-            console.log(`No summary found for repo link: ${repo_link}`);
-            return [];
-        }
-        const results = [];
-        helper_search(paths, results, summary_object);
-        return results;
-    }catch(error){
-        console.log(`Error in database search function: ${error}`);
-        return {};
-    }
-}
 
-async function code_search(json_object){
-    const paths = json_object.paths;
-    const sessionId = json_object.sessionId;
-    console.log(`Search in code(Github) for the paths: ${paths}`);
-    let promises = [];
-    const repo_link = await redisClient.lRange(sessionId, 0, 0);
-    await redisClient.expire(sessionId, 3600);
-    //the repo_link is an array because it's retrieved by the lRnage function
-    const [owner,repo] = owner_repo(repo_link[0]);
-    try{
-        promises = paths.map(async path => {
-            // Retrieve the code
-            const response = await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
-                owner: owner,
-                repo: repo,
-                path: path,
-                headers: {
-                    'X-GitHub-Api-Version': '2022-11-28'
+async function search_wrapper(sessionId){
+    async function database_search(json_object){
+        const paths = json_object.paths;
+        // const sessionId = json_object.sessionId;
+        console.log(`Search in database for the paths: ${paths}`);
+        try{
+            //the repo_link is an array because it's retrieved by the lRnage function
+            let repo_link = await redisClient.lRange(sessionId, 0, 0);
+            await redisClient.expire(sessionId, 3600);
+            repo_link = repo_link[0];
+            const summary_object = await Repo.findOne({path:repo_link});
+            if (!summary_object) {
+                console.log(`No summary found for repo link: ${repo_link}`);
+                return [];
+            }
+            const results = [];
+            helper_search(paths, results, summary_object);
+            return results;
+        }catch(error){
+            console.log(`Error in database search function: ${error}`);
+            return {};
+        }
+    }
+    
+    
+    
+    async function code_search(json_object){
+        const paths = json_object.paths;
+        // const sessionId = json_object.sessionId;
+        console.log(`Search in code(Github) for the paths: ${paths}`);
+        let promises = [];
+        const repo_link = await redisClient.lRange(sessionId, 0, 0);
+        await redisClient.expire(sessionId, 3600);
+        //the repo_link is an array because it's retrieved by the lRnage function
+        const [owner,repo] = owner_repo(repo_link[0]);
+        try{
+            promises = paths.map(async path => {
+                // Retrieve the code
+                const response = await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
+                    owner: owner,
+                    repo: repo,
+                    path: path,
+                    headers: {
+                        'X-GitHub-Api-Version': '2022-11-28'
+                    }
+                });
+    
+                if (response.data.type && response.data.type === "file") {
+                    // If it's a file and has content, decode and analyze
+                    const decodedContent = Buffer.from(response.data.content, 'base64').toString('utf-8');
+                    return {path:path,content:decodedContent};
+                } else {
+                    return { path: path, content: `${path} is not a code file.` };
                 }
             });
-
-            if (response.data.type && response.data.type === "file") {
-                // If it's a file and has content, decode and analyze
-                const decodedContent = Buffer.from(response.data.content, 'base64').toString('utf-8');
-                return {path:path,content:decodedContent};
-            } else {
-                return { path: path, content: `${path} is not a code file.` };
-            }
-        });
-        const results  = await Promise.all(promises);
-        return results;
-    }catch(error){
-        console.error(`error in code search: ${error.status||error}`);
-        return [];
+            const results  = await Promise.all(promises);
+            return results;
+        }catch(error){
+            console.error(`error in code search: ${error.status||error}`);
+            return [];
+        }
     }
+
+    return {database_search,code_search};
 }
+
 
 
 /**
@@ -480,7 +488,7 @@ async function code_search(json_object){
  * @param {object} response_message 
  * 
  */
-async function handle_ai_response(sessionId,response_message){
+async function handle_ai_response(sessionId,response_message,functions_to_call){
     //append this to the message_list(conversation history) after done
     let messages = []
 
@@ -492,8 +500,8 @@ async function handle_ai_response(sessionId,response_message){
         await redisClient.rPush(sessionId, JSON.stringify(response_message));
         await redisClient.expire(sessionId, 3600);
         const available_functions ={
-            "database_search":database_search,
-            "code_search":code_search
+            "database_search":functions_to_call.database_search,
+            "code_search":functions_to_call.code_search
         }
 
         //Failure case 1: function name is wrong
@@ -571,7 +579,7 @@ async function handle_ai_response(sessionId,response_message){
  * @param {bool} first_message  -if this user_message is processed for the first time
  * @param {bool} first_question -if this is the first question in the chat history
  */
-async function step(sessionId,repo_link,user_message,first_message=true,first_question=false){
+async function step(sessionId,repo_link,user_message,functions_to_call,first_message=true,first_question=false){
     
     try{
         //step0: add user message if it's the first time it's seen
@@ -587,7 +595,7 @@ async function step(sessionId,repo_link,user_message,first_message=true,first_qu
 
         //step2: check if the LLM wanted to call a function
         const response_message = response.choices[0].message;
-        const [all_response_messages,function_failed] = await handle_ai_response(sessionId,response_message);
+        const [all_response_messages,function_failed] = await handle_ai_response(sessionId,response_message,functions_to_call);
 
         //step 3: extend the message_list(conversation history) with the function response
         all_response_messages.forEach(async (message,i)=>{
@@ -620,7 +628,7 @@ async function step(sessionId,repo_link,user_message,first_message=true,first_qu
             }
             
             // Try step again
-            return await step(sessionId,repo_link,user_message,false);
+            return await step(sessionId,repo_link,user_message,functions_to_call,false);
         } else {
             console.error(`step() failed with openai.InvalidRequestError, but didn't recognize the error message: '${error}'`);
             throw error;
@@ -640,6 +648,7 @@ app.post('/api/answer-question', async (req, res) => {
     const repoLink = req.body.link;
     // const [owner, repo] = owner_repo(repoLink);
     const sessionId = req.body.sessionId;
+    const functions_to_call = await search_wrapper(sessionId);
 
     const exists = await redisClient.exists(sessionId);
     if (!exists) {
@@ -648,7 +657,7 @@ app.post('/api/answer-question', async (req, res) => {
     }
     const question_id = uuidv4();
     res.json({status:"processing"});
-    const response = await step(sessionId,repoLink,question);
+    const response = await step(sessionId,repoLink,question,functions_to_call);
     // const answer = response.choices[0].message.content;
     // return res.json(answer);
 });
