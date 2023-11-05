@@ -142,7 +142,7 @@ app.post("/api/retrieve-code",async (req,res)=>{
             // res.json({sessionId:sessionId,message:"This is the first time I have seen this repo. I will process it now. It may take some time..."});
             const processing_detail = [];
             const beginTime = performance.now();
-            repoAnalysis = await do_analysis(repoLink, owner, repo,true,processing_detail,sessionId);
+            repoAnalysis = await do_analysis(repoLink, owner, repo,true,processing_detail,sessionId,redisClient);
             const endTime = performance.now();
             console.log(repoAnalysis);
             console.log("successfully do the repo_analysis");

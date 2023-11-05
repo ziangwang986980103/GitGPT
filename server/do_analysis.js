@@ -9,9 +9,9 @@ const octokit = new Octokit({ auth: process.env.GITHUB_PAT });
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API
 });
-import {initialize_redis} from "./server.js";
+// import {initialize_redis} from "./server.js";
 
-let redisClient = await initialize_redis();
+// let redisClient = await initialize_redis();
 
 function chunkify_text(text, chunkSize) {
     let startTime = performance.now();
@@ -127,7 +127,7 @@ async function do_summary(text) {
  * This function will recursive analyze the sub-directories/files of the current path, and then summarize them to get the analysis of the current path.
  * @returns {object} repo_analysis -a object containing the analysis of the current repo in the form {path:string, type: string(dir,file), analysis: string, children:[array of the sub-directories/files analysis object]}. The children will be empty if it's a file
  */
-async function do_analysis(repoLink, owner, repo,verbose,processing_detail,sessionId) {
+async function do_analysis(repoLink, owner, repo,verbose,processing_detail,sessionId,redisClient) {
     let startTime = performance.now();
 
     let intervalId = setInterval(async ()=>{
@@ -156,7 +156,7 @@ async function do_analysis(repoLink, owner, repo,verbose,processing_detail,sessi
     //the paths to and type of the root's directories and files
     let paths = result.data.tree.map((value, index) => ({ path: value.path, type: value.type }));
     let promises = paths.map(async item => {
-        return await recursive_analysis(item, owner, repo,verbose);
+        return await recursive_analysis(item, owner, repo,verbose,redisClient);
     });
 
     //summarize the analysis
@@ -193,7 +193,7 @@ async function do_analysis(repoLink, owner, repo,verbose,processing_detail,sessi
  * 
  * @param {object} item - {path:string,type:string}
  */
-async function recursive_analysis(item, owner, repo,verbose) {
+async function recursive_analysis(item, owner, repo,verbose,redisClient) {
     //if the file should be ignored, we just do summary based on its path instead of content
     if(item.type === "blob" || item.type === "file"){
         for(let m =0; m < file_to_be_ignored.length; ++m){
@@ -256,7 +256,7 @@ async function recursive_analysis(item, owner, repo,verbose) {
             processing_detail.push(`Processing the directory: ${item.path}`);
         }
         const promises = response.data.map(async (value, i) => {
-            return await recursive_analysis({ path: value.path, type: value.type }, owner, repo,true);
+            return await recursive_analysis({ path: value.path, type: value.type }, owner, repo,true,redisClient);
         });
         const results = await Promise.allSettled(promises);
         let concatenated = "";
