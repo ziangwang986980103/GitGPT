@@ -557,7 +557,7 @@ app.get('/api/job-status/retrieve-code/:sessionId',async (req,res)=>{
     const sessionId = req.params.sessionId;
     const messages = await redisClient.lRange(sessionId,0,-1);
     if(messages.length >= 2){
-        redisClient.delete(`progress:${sessionId}`);
+        redisClient.del(`progress:${sessionId}`);
         return res.json({status:"completed"});
     }
     else{
