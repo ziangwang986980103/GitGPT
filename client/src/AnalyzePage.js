@@ -11,6 +11,7 @@ function AnalyzePage({ repoLink }) {
     const [error, setError] = useState(null);
     const [question, setQuestion] = useState("");
     const [history, setHistory] = useState([]);
+    const [progress,setProgress] = useState([]);
     const [sessionId, setSessionId] = useState(null);
     const [answerStatus, setAnswerStatus] = useState(0);
     // const [jobId,setJobId] = useState(null);
@@ -76,10 +77,14 @@ function AnalyzePage({ repoLink }) {
                                 setLoading(false);
                                 clearInterval(intervalId);
                             }
+                            else{
+                                const processing_detail = JSON.parse(data.processing_detail);
+                                setProgress(processing_detail);
+                            }
                         } catch (error) {
                             console.error("Error checking job status:", error);
                         }
-                    }, 30000); // Poll every 30 seconds
+                    }, 10000); // Poll every 10 seconds
                 }
                 
 
@@ -169,7 +174,19 @@ function AnalyzePage({ repoLink }) {
 
 
     if (loading) {
-        return <p>Hey there! I'm not familiar with this repo just yet. Let me take a moment to analyze it. It typically takes around 1 to 5 minutes. Sit tight, and I'll be right back with some insights!Please don't refresh the page!😊</p>;
+        return (
+        <div>
+            <p>Hey there! I'm not familiar with this repo just yet. Let me take a moment to analyze it. It typically takes around 1 to 5 minutes. Sit tight, and I'll be right back with some insights!Please don't refresh the page!😊</p>
+            {
+                progress.map((item, index) => (
+                    <div key={index}>
+                        <p>{item}</p>
+                    </div>
+                ))
+            }
+        </div>
+        
+        );
     }
     if (error) return <p>Error: {error.message}</p>;
 

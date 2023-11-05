@@ -19,12 +19,6 @@ const openai = new OpenAI({
 });
 import {v4 as uuidv4} from "uuid";
 import redis from 'redis';
-import { createCipheriv } from "crypto";
-import { fileURLToPath } from 'url';
-import path,{dirname} from "path";
-import { isGeneratorFunction } from "util/types";
-// import {Server} from "socket.io";
-// import http from "http";
 
 const MESSAGE_SUMMARY_WARNING_TOKEN = 10000;
 const CHAT_MODEL = "gpt-3.5-turbo-16k";
@@ -146,9 +140,9 @@ app.post("/api/retrieve-code",async (req,res)=>{
         let repoAnalysis = await Repo.findOne({ path: repoLink });
         if(!repoAnalysis){
             // res.json({sessionId:sessionId,message:"This is the first time I have seen this repo. I will process it now. It may take some time..."});
-
+            const processing_detail = [];
             const beginTime = performance.now();
-            repoAnalysis = await do_analysis(repoLink, owner, repo,true);
+            repoAnalysis = await do_analysis(repoLink, owner, repo,true,processing_detail,sessionId);
             const endTime = performance.now();
             console.log(repoAnalysis);
             console.log("successfully do the repo_analysis");
@@ -165,7 +159,6 @@ app.post("/api/retrieve-code",async (req,res)=>{
         }
         let paths = [];
         get_paths(repoAnalysis,paths);
-        //TODO: the sessionId is now added to the system message and we rely on chatgpt to recall it. Think of a better way to store it. 
         const system_message_content = decorated_prompt(sessionId,paths);
         const systemMessage = JSON.stringify({ role: "system", content: system_message_content });
         await redisClient.rPush(sessionId, systemMessage, (err, listLength) => {
@@ -490,7 +483,6 @@ async function step(sessionId,repo_link,user_message,functions_to_call,first_mes
         if(first_message){
             await redisClient.rPush(sessionId, JSON.stringify({ role: "user", content: user_message }));
             await redisClient.expire(sessionId, 3600);
-
         }
         
 
@@ -565,10 +557,12 @@ app.get('/api/job-status/retrieve-code/:sessionId',async (req,res)=>{
     const sessionId = req.params.sessionId;
     const messages = await redisClient.lRange(sessionId,0,-1);
     if(messages.length >= 2){
+        redisClient.delete(`progress:${sessionId}`);
         return res.json({status:"completed"});
     }
     else{
-        return res.json({ status: "failed" });
+        const processing_detail = await redisClient.get(`progress:${sessionId}`);
+        return res.json({ status: "processing",processing_detail:processing_detail });
     }
 });
 

@@ -9,9 +9,9 @@ const octokit = new Octokit({ auth: process.env.GITHUB_PAT });
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API
 });
-// import { RecursiveCharacterTextSplitter } from "langchain/text_splitter"
+import {initialize_redis} from "./server.js";
 
-//TODO: think about a way to deal with the gpt api rate limit.
+let redisClient = await initialize_redis();
 
 function chunkify_text(text, chunkSize) {
     let startTime = performance.now();
@@ -127,10 +127,15 @@ async function do_summary(text) {
  * This function will recursive analyze the sub-directories/files of the current path, and then summarize them to get the analysis of the current path.
  * @returns {object} repo_analysis -a object containing the analysis of the current repo in the form {path:string, type: string(dir,file), analysis: string, children:[array of the sub-directories/files analysis object]}. The children will be empty if it's a file
  */
-async function do_analysis(repoLink, owner, repo,verbose) {
+async function do_analysis(repoLink, owner, repo,verbose,processing_detail,sessionId) {
     let startTime = performance.now();
+
+    let intervalId = setInterval(async ()=>{
+        await redisClient.set(`progress:${sessionId}`,JSON.stringify(processing_detail));
+    },10000); //update the processing_detail every ten seconds
     if (verbose) {
         console.log(`Processing the directory: ${repoLink}`);
+        processing_detail.push(`Processing the directory: ${repoLink}`);
     }
     let repository = await octokit.request('GET /repos/{owner}/{repo}', {
         owner: owner,
@@ -172,7 +177,10 @@ async function do_analysis(repoLink, owner, repo,verbose) {
     if (verbose) {
         let endTime = performance.now();
         console.log(`Finish Processing the directory: ${repoLink}. The processing takes ${(endTime - startTime) / 1000} seconds.`);
+        processing_detail.push(`Finish Processing the directory: ${repoLink}. The processing takes ${(endTime - startTime) / 1000} seconds.`);
     }
+    await redisClient.set(`progress:${sessionId}`, JSON.stringify(processing_detail));
+    clearInterval(intervalId);
     return {
         path: repoLink,
         type: "dir",
@@ -194,11 +202,13 @@ async function recursive_analysis(item, owner, repo,verbose) {
                 let startTime = performance.now();
                 if(verbose){
                     console.log(`Processing the file: ${item.path}`);
+                    processing_detail.push(`Processing the file: ${item.path}`);
                 }
                 const summary = await do_summary(item.path);
                 if (verbose) {
                     let endTime = performance.now();
                     console.log(`Finish Processing the file: ${item.path}. The processing takes ${(endTime - startTime)/1000} seconds.`);
+                    processing_detail.push(`Finish Processing the file: ${item.path}. The processing takes ${(endTime - startTime) / 1000} seconds.`);
                 }
                 return {
                     path: item.path,
@@ -225,11 +235,13 @@ async function recursive_analysis(item, owner, repo,verbose) {
         let startTime = performance.now();
         if(verbose){
             console.log(`Processing the file: ${item.path}`);
+            processing_detail.push(`Processing the file: ${item.path}`);
         }
         const summary = await do_summary(decodedContent);
         if (verbose) {
             let endTime = performance.now();
             console.log(`Finish Processing the file: ${item.path}. The processing takes ${(endTime - startTime) / 1000} seconds.`);
+            processing_detail.push(`Finish Processing the file: ${item.path}. The processing takes ${(endTime - startTime) / 1000} seconds.`);
         }
         return {
             path: item.path,
@@ -241,6 +253,7 @@ async function recursive_analysis(item, owner, repo,verbose) {
         let startTime = performance.now();
         if (verbose) {
             console.log(`Processing the directory: ${item.path}`);
+            processing_detail.push(`Processing the directory: ${item.path}`);
         }
         const promises = response.data.map(async (value, i) => {
             return await recursive_analysis({ path: value.path, type: value.type }, owner, repo,true);
@@ -262,6 +275,7 @@ async function recursive_analysis(item, owner, repo,verbose) {
         if (verbose) {
             let endTime = performance.now();
             console.log(`Finish Processing the directory: ${item.path}. The processing takes ${(endTime - startTime) / 1000} seconds.`);
+            processing_detail.push(`Finish Processing the directory: ${item.path}. The processing takes ${(endTime - startTime) / 1000} seconds.`);
         }
         return {
             path: item.path,
