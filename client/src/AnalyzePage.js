@@ -93,27 +93,6 @@ function AnalyzePage({ repoLink }) {
     }, [repoLink]);
 
 
-    //add error handler here
-    // useEffect(() => {
-    //     let intervalId;
-
-    //     if (sessionId) {
-    //         intervalId = setInterval(async () => {
-    //             try {
-    //                 const response = await fetch(`https://protected-eyrie-72539-1196ab347705.herokuapp.com/api/job-status/retrieve-code/${sessionId}`);
-    //                 const data = await response.json();
-
-    //                 if (data.status === 'completed') {
-    //                     setLoading(false);
-    //                     clearInterval(intervalId);
-    //                 }
-    //             } catch (error) {
-    //                 console.error("Error checking job status:", error);
-    //             }
-    //         }, 30000); // Poll every 30 seconds
-    //     }
-    //     return () => clearInterval(intervalId);
-    // }, [sessionId]);
 
 
     useEffect(() => {
@@ -175,13 +154,6 @@ function AnalyzePage({ repoLink }) {
                     }
                 }, 5000); // Poll every 5 seconds
 
-
-                // Replace "loading" with the actual answer
-                // setHistory(prevHistory => {
-                //     let updatedHistory = [...prevHistory];
-                //     updatedHistory[updatedHistory.length - 1].content = jsonResponse;
-                //     return updatedHistory;
-                // });
             }
             catch (error) {
                 setError(error);
