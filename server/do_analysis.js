@@ -41,6 +41,11 @@ function chunkify_text(text, chunkSize) {
     // console.log(`The size of the text is ${text.length} characters. The time of chunkify is ${(endTime - startTime)/1000} seconds`);
     // return parsedOutput;
 }
+
+function delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 /**
  * 
  * @param {string} text - the text to be summarized
@@ -52,13 +57,13 @@ async function do_summary(text) {
     let startTime = performance.now();
     let messages = [
         { role: "system", content: prompt_summarize },
-        { role: "user", content: 'Here is the content:' }
+        { role: "user", content: 'Here is the content: ' }
     ];
     const jsonData = {
         model: "gpt-3.5-turbo-16k",
         messages: messages
     };
-    if (text.length <= 16000) {
+    if (text.length <= 30000) {
         try {
             //just summarize the actual text
             messages[messages.length - 1].content += text;
@@ -67,27 +72,35 @@ async function do_summary(text) {
             return completion.choices[0].message.content;
         }
         catch (error) {
-            console.error(`error in do_summary ${error || error.status}`);
+            if (error.message.includes("429")) {
+                console.log("Rate limit exceeded. Please try again later.");
+                //when the rate limit happens, wait 60 seconds and try again
+                await delay(60000);
+                return await do_summary(text);
+            }
+            else if (error.message.includes("400")) {
+                const summary1 = await do_summary(text.substring(0, text.length / 2));
+                const summary2 = await do_summary(text.substring(text.length / 2, text.length - 1));
+                return summary1 + summary2;
+            }
+            else {
+                console.error("An error occurred:", error.message);
+                // General error handling
+            }
         }
-    }else{
+    } else {
         try {
 
-            const chunks = await chunkify_text(text, 16000);
+            const chunks = await chunkify_text(text, 30000);
             const promises = chunks.map(async (value, i) => {
                 return await do_summary(value);
             });
             const results = await Promise.allSettled(promises);
             let successResults = results.filter((value, i) => { return value.status === "fulfilled" }).map((v, i) => { return JSON.stringify(v.value) });
             const concatenated = successResults.join();
-            if(concatenated === "" || concatenated === null) { 
-                concatenated = "the content is unavailable";
-            }
             const summary = await do_summary(concatenated);
             let endTime = performance.now();
             // console.log(`The text size is ${text.length} characters. The time of summary is ${(endTime - startTime) / 1000} seconds`);
-            if(summary === "" || summary === null){
-                summary = "The summary is unavailable. Infer it based on the path name.";
-            }
             return summary;
             //concatenated the previous summary to the current one
             // const chunks = await chunkify_text(text, 3000);
@@ -103,11 +116,10 @@ async function do_summary(text) {
             // return summary;
         }
         catch (error) {
-            console.error(`error in do_summary ${error || error.status}`);
-            return "the summary is unavailable. You should infer what it does based on the path name."
+            console.error(`error in do_summary ${error}`);
         }
     }
-    
+
 }
 
 

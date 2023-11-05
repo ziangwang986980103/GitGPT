@@ -1,6 +1,5 @@
 import express, { json } from "express";
 import cors from "cors";
-import nlp from "compromise";
 import fs, { readSync} from "fs";
 import {do_analysis,do_summary} from "./do_analysis.js";
 import {encode} from "gpt-3-encoder";
@@ -8,11 +7,10 @@ import Repo from "./model/repo_summary.js"
 import functions from "./Prompts/functions.js";
 import decorated_prompt from './Prompts/systems/gpt_doc.js'
 import { Octokit } from "@octokit/rest";
-// import { process } from './env.js'
 import 'dotenv/config';
 import OpenAI, { NotFoundError } from 'openai';
 import mongoose from "mongoose";
-import bullQueue from "./worker/queue.js";
+
 
 const octokit = new Octokit({ auth: process.env.GITHUB_PAT });
 

@@ -1,6 +1,8 @@
+import dotenv from 'dotenv';
+dotenv.config();
 import fs from "fs";
 import { Octokit } from "@octokit/rest";
-import { process } from '../../env.js';
+// import { process } from '../../env.js';
 import prompt_summarize from '../../Prompts/gpt_summarize.js';
 import OpenAI, { NotFoundError } from 'openai';
 const octokit = new Octokit({ auth: process.env.GITHUB_PAT });
@@ -39,6 +41,11 @@ function chunkify_text(text, chunkSize) {
     // console.log(`The size of the text is ${text.length} characters. The time of chunkify is ${(endTime - startTime)/1000} seconds`);
     // return parsedOutput;
 }
+
+function delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 /**
  * 
  * @param {string} text - the text to be summarized
@@ -50,13 +57,13 @@ async function do_summary(text) {
     let startTime = performance.now();
     let messages = [
         { role: "system", content: prompt_summarize },
-        { role: "user", content: 'Here is the content:' }
+        { role: "user", content: 'Here is the content: ' }
     ];
     const jsonData = {
         model: "gpt-3.5-turbo-16k",
         messages: messages
     };
-    if (text.length <= 16000) {
+    if (text.length <= 30000) {
         try {
             //just summarize the actual text
             messages[messages.length - 1].content += text;
@@ -65,12 +72,26 @@ async function do_summary(text) {
             return completion.choices[0].message.content;
         }
         catch (error) {
-            console.error(`error in do_summary ${error || error.status}`);
+            if (error.message.includes("429")) {
+                console.log("Rate limit exceeded. Please try again later.");
+                //when the rate limit happens, wait 60 seconds and try again
+                await delay(60000);
+                return await do_summary(text);
+            } 
+            else if(error.message.includes("400")){
+                const summary1 = await do_summary(text.substring(0,text.length/2));
+                const summary2 = await do_summary(text.substring(text.length/2,text.length-1));
+                return summary1 + summary2;
+            }
+            else {
+                console.error("An error occurred:", error.message);
+                // General error handling
+            }
         }
     } else {
         try {
 
-            const chunks = await chunkify_text(text, 16000);
+            const chunks = await chunkify_text(text, 30000);
             const promises = chunks.map(async (value, i) => {
                 return await do_summary(value);
             });
@@ -95,7 +116,7 @@ async function do_summary(text) {
             // return summary;
         }
         catch (error) {
-            console.error(`error in do_summary ${error || error.status}`);
+            console.error(`error in do_summary ${error}`);
         }
     }
 
@@ -253,7 +274,7 @@ async function recursive_analysis(item, owner, repo, verbose) {
 
 try {
     const beginTime = performance.now();
-    const repo_analysis = await do_analysis("https://github.com/Felx-B/vscode-web", "Felx-B", "vscode-web",true);
+    const repo_analysis = await do_analysis("https://github.com/nvbn/thefuck", "nvbn","thefuck",true);
     const endTime = performance.now();
     console.log(repo_analysis);
     console.log("successfully do the repo_analysis");

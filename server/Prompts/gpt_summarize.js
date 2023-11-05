@@ -45,5 +45,7 @@ Contextual Understanding:
     files and directories.Each summary should be concise, encapsulating the crucial high-level information.The summary shouldn't be just simple concatenation
     of the provided contents, you should infer the role of the current directory based on the summaries of sub-directories and sub-files.
 
+Note: if the content is empty, just state it's empty and do not fake any summary.
+
 `
 export default prompt_summarize;
