@@ -11,41 +11,11 @@ function Home({setRepoLink}){
         event.preventDefault();
         const tempLink = link;
         setLink('');
+        sessionStorage.setItem("newSession",true);
         setRepoLink(tempLink);
         navigate('/analyze');
     };
     return (
-        // <div className="Home">
-        //     <h1>GitGPT</h1>
-        //     <form onSubmit={handleSubmit}>
-        //         {/* <label htmlFor="link">Link:</label> */}
-        //         <input
-        //             type="text"
-        //             id="link"
-        //             name="link"
-        //             value={link}
-        //             placeholder='Type a Github Repository URL eg. https://github.com/cpacker/MemGPT'
-        //             onChange={(e) => setLink(e.target.value)}
-        //         />
-        //         {/* <br /> */}
-        //         {/* <input type="submit" value="Submit" /> */}
-        //     </form>
-        // </div>
-        // <div className="Home">
-        //     <h1>GitGPT</h1>
-        //     <form onSubmit={handleSubmit} className="search-form">
-        //         <span className="search-icon"></span>
-        //         <input
-        //             type="text"
-        //             id="link"
-        //             name="link"
-        //             value={link}
-        //             placeholder='Type a Github Repository URL eg. https://github.com/cpacker/MemGPT'
-        //             onChange={(e) => setLink(e.target.value)}
-        //         />
-        //         <button type="submit" className="search-btn"></button>
-        //     </form>
-        // </div>
         <div className="Home">
             <h1>GitGPT</h1>
             <form onSubmit={handleSubmit} className="search-form">

@@ -1,4 +1,4 @@
-import React, { useState,useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import Inputbox from './Inputbox.js';
 import './AnalyzePage.css';
 
@@ -12,10 +12,36 @@ function AnalyzePage({ repoLink }) {
     const [question, setQuestion] = useState("");
     const [history, setHistory] = useState([]);
     const [sessionId, setSessionId] = useState(null);
-    const [answerStatus,setAnswerStatus] = useState(0);
+    const [answerStatus, setAnswerStatus] = useState(0);
     // const [jobId,setJobId] = useState(null);
     //TODO: add a check to see if it's local development envirionment or not. 
+
+    // useEffect(() => {
+    //     const savedSessionId = sessionStorage.getItem('sessionId');
+    //     const savedHistory = sessionStorage.getItem('history');
+
+    //     if (savedSessionId) {
+    //         setSessionId(savedSessionId);
+    //         setLoading(false); // Assume if there's a session, loading is complete
+    //     }
+
+    //     if (savedHistory) {
+    //         setHistory(JSON.parse(savedHistory));
+    //     }
+    // }, []);
+
+    // useEffect(() => {
+    //     if (sessionId) {
+    //         sessionStorage.setItem('sessionId', sessionId);
+    //     }
+    // }, [sessionId]);
+
+    // useEffect(() => {
+    //     sessionStorage.setItem('history', JSON.stringify(history));
+    // }, [history]);
+
     useEffect(() => {
+        let intervalId;
         const fetchData = async () => {
             try {
                 // const response = await fetch("http://localhost:8000/api/retrieve-code", {
@@ -32,52 +58,64 @@ function AnalyzePage({ repoLink }) {
                     },
                     body: JSON.stringify({ link: repoLink })
                 });
-                
+
 
                 if (!response.ok) {
                     throw new Error(`HTTP error! Status: ${response.status}`);
                 }
 
                 const jsonResponse = await response.json();
-                // setJobId(jsonResponse.jobId);
                 setSessionId(jsonResponse.sessionId);
+                if (jsonResponse.sessionId) {
+                    intervalId = setInterval(async () => {
+                        try {
+                            const response = await fetch(`https://protected-eyrie-72539-1196ab347705.herokuapp.com/api/job-status/retrieve-code/${jsonResponse.sessionId}`);
+                            const data = await response.json();
+
+                            if (data.status === 'completed') {
+                                setLoading(false);
+                                clearInterval(intervalId);
+                            }
+                        } catch (error) {
+                            console.error("Error checking job status:", error);
+                        }
+                    }, 30000); // Poll every 30 seconds
+                }
                 
-                // setResult(jsonResponse);
+
+
             } catch (error) {
                 setError(error);
             }
-            // } finally {
-            //     setLoading(false);
-            // }
         };
-
         fetchData();
+        return () => clearInterval(intervalId);
     }, [repoLink]);
 
 
     //add error handler here
-    useEffect(()=>{
-        let intervalId;
+    // useEffect(() => {
+    //     let intervalId;
 
-        if (sessionId) {
-            intervalId = setInterval(async () => {
-                try {
-                    const response = await fetch(`https://protected-eyrie-72539-1196ab347705.herokuapp.com/api/job-status/retrieve-code/${sessionId}`);
-                    const data = await response.json();
+    //     if (sessionId) {
+    //         intervalId = setInterval(async () => {
+    //             try {
+    //                 const response = await fetch(`https://protected-eyrie-72539-1196ab347705.herokuapp.com/api/job-status/retrieve-code/${sessionId}`);
+    //                 const data = await response.json();
 
-                    if (data.status === 'completed') {
-                        setLoading(false);
-                        clearInterval(intervalId);
-                    }
-                } catch (error) {
-                    console.error("Error checking job status:", error);
-                }
-            }, 30000); // Poll every 30 seconds
-        }
-        return () => clearInterval(intervalId);
-    },[sessionId]);
+    //                 if (data.status === 'completed') {
+    //                     setLoading(false);
+    //                     clearInterval(intervalId);
+    //                 }
+    //             } catch (error) {
+    //                 console.error("Error checking job status:", error);
+    //             }
+    //         }, 30000); // Poll every 30 seconds
+    //     }
+    //     return () => clearInterval(intervalId);
+    // }, [sessionId]);
 
-    
+
     useEffect(() => {
         let intervalId;
         const answer_question = async () => {
@@ -115,9 +153,9 @@ function AnalyzePage({ repoLink }) {
                     throw new Error(`HTTP error! Status: ${response.status}`);
                 }
 
-                
+
                 // const jsonResponse = await response.json();
-                
+
                 intervalId = setInterval(async () => {
                     try {
                         const response = await fetch(`https://protected-eyrie-72539-1196ab347705.herokuapp.com/api/job-status/answer_question/${sessionId}`);
@@ -137,7 +175,7 @@ function AnalyzePage({ repoLink }) {
                     }
                 }, 5000); // Poll every 5 seconds
 
-                
+
                 // Replace "loading" with the actual answer
                 // setHistory(prevHistory => {
                 //     let updatedHistory = [...prevHistory];
@@ -158,9 +196,9 @@ function AnalyzePage({ repoLink }) {
 
 
 
-    if (loading){
-        return <p>Hey there! I'm not familiar with this repo just yet. Let me take a moment to analyze it. It typically takes around 1 to 5 minutes. Sit tight, and I'll be right back with some insights!😊</p>;
-    } 
+    if (loading) {
+        return <p>Hey there! I'm not familiar with this repo just yet. Let me take a moment to analyze it. It typically takes around 1 to 5 minutes. Sit tight, and I'll be right back with some insights!Please don't refresh the page!😊</p>;
+    }
     if (error) return <p>Error: {error.message}</p>;
 
     return (
