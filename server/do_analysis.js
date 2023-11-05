@@ -156,7 +156,7 @@ async function do_analysis(repoLink, owner, repo,verbose,processing_detail,sessi
     //the paths to and type of the root's directories and files
     let paths = result.data.tree.map((value, index) => ({ path: value.path, type: value.type }));
     let promises = paths.map(async item => {
-        return await recursive_analysis(item, owner, repo,verbose,redisClient);
+        return await recursive_analysis(item, owner, repo,verbose,processing_detail,redisClient);
     });
 
     //summarize the analysis
@@ -193,7 +193,7 @@ async function do_analysis(repoLink, owner, repo,verbose,processing_detail,sessi
  * 
  * @param {object} item - {path:string,type:string}
  */
-async function recursive_analysis(item, owner, repo,verbose,redisClient) {
+async function recursive_analysis(item, owner, repo,verbose,processing_detail,redisClient) {
     //if the file should be ignored, we just do summary based on its path instead of content
     if(item.type === "blob" || item.type === "file"){
         for(let m =0; m < file_to_be_ignored.length; ++m){
@@ -256,7 +256,7 @@ async function recursive_analysis(item, owner, repo,verbose,redisClient) {
             processing_detail.push(`Processing the directory: ${item.path}`);
         }
         const promises = response.data.map(async (value, i) => {
-            return await recursive_analysis({ path: value.path, type: value.type }, owner, repo,true,redisClient);
+            return await recursive_analysis({ path: value.path, type: value.type }, owner, repo,true,processing_detail,redisClient);
         });
         const results = await Promise.allSettled(promises);
         let concatenated = "";
