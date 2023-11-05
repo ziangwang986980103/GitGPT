@@ -64,15 +64,7 @@ connection.once("open",()=>{
     console.log("connect to the mongodb successfully");
 })
 
-//TODO: When the request takes more than 30 second, there will be time out error on heroku. 
-//Consider the following solutions:
-//1.Background Jobs: Instead of processing the request synchronously, you can offload the long - running task to a background worker using tools like Sidekiq (for Ruby), Celery(for Python), or Bull(for Node.js).The main idea is that your web request will only enqueue a job to be processed, and then immediately respond to the client.The background worker will then pick up and process the job separately.This way, the client isn't waiting for the actual processing to complete.
-//2.WebSockets: Instead of traditional HTTP requests, you can use WebSockets, which allow for a persistent connection between the client and server.This way, you can start a task on the server and then send updates to the client over the WebSocket connection as the task progresses.Heroku supports WebSocket connections, but they aren't bound by the 30-second rule.
-//3.Polling: You can implement a polling mechanism where the client sends a request to start a long - running task, gets an immediate response, and then periodically checks back to see if the task is complete.
-
-// const port = 8000;
 const app = express();
-// app.use(cors());
 const corsOptions = {
     origin: ['http://localhost:3000', 'http://localhost:3000/GitGPT','https://ziangwang986980103.github.io'],
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
@@ -109,62 +101,6 @@ function countTokens(text) {
 
 
 /**
- * Make a call to the Chatgpt API, checks if a functions is called. If so, return an object containing the name and arguments of the function.
- * If not, return an object containing "general" as the name and the response from the chatgpt as content. This function will not update the messages
- * array, it's the job for the caller.
- * @param {string} model 
- * @param {Array} messages 
- * @param {Array} functions 
- * @param {Array} functionCall 
- * @param {Boolean} time_perf 
- * @param {string} prompt - the prompt that is added to the current prompt for bettter result
- * @returns {Object} {name: string, content: string}
- */
-async function chatCompletion(sessionId, model = CHAT_MODEL,functions=null,functionCall=null,time_perf=false,prompt=""){
-    let startTime = performance.now();
-    let historyList;
-    try{
-        historyList = await redisClient.lRange(sessionId, 0, -1);
-        await redisClient.expire(sessionId, 3600);
-        historyList =historyList.map((value,index)=>{return JSON.parse(value)});
-    }catch(err){
-        console.error("Error in get the history list ",err);
-    }
-
-    if(prompt !== ""){
-        historyList[historyList.length-1].content += prompt;
-    }
-    const jsonData = {model:model,messages:historyList};
-    if(functions !== null){
-        jsonData.functions = functions;
-    }
-    if(functionCall !== null){
-        jsonData.functionCall = functionCall;
-    }
-    try{
-        // console.log("jsonData: ",jsonData);
-        const completion = await openai.chat.completions.create(jsonData);
-        let endTime = performance.now();
-        let timediff = (endTime - startTime) / 1000;
-        if (time_perf){
-            console.log(`The ChatGpt spends ${timediff} seconds`);
-        }
-        const responseMessage = completion.choices[0].message;
-        if (responseMessage.function_call) {
-            return { name: responseMessage.function_call.name, content: responseMessage.function_call.arguments };
-        }
-        else {
-            return { name: "general", content: completion.choices[0].message.content };
-        }
-    }catch(error){
-        console.error(`Failed to call ChatGPT API: ${error.status || error}`);
-        console.log("json data:",jsonData);
-        return null;
-    }
-    
-}
-
-/**
  * @param {string} -the link of a github repository
  * @returns {string} -an array of owner and repo name of the link
 */
@@ -190,8 +126,6 @@ function get_paths(repo_analysis,paths){
 }
 
 
-
-
 /**
  * Receive the initial request from the user. Send back the initial analysis of the repo, and store the analysis into the database.
  */
@@ -205,18 +139,6 @@ app.post("/api/retrieve-code",async (req,res)=>{
     //set it to expire in one hour
     await redisClient.expire(sessionId, 3600);
 
-    // const job = await bullQueue.add({
-    //     type:'retrieve-code',
-    //     repoLink: repoLink,
-    //     owner: owner,
-    //     repo: repo,
-    //     sessionId: sessionId
-    // });
-    // if (job.id) {
-    //     console.log(`Job with ID ${job.id} has been added`);
-    // } else {
-    //     console.log('Job was not added');
-    // }
     res.json({ status: "processing", sessionId:sessionId});
 
     try{
@@ -272,11 +194,6 @@ app.post("/api/retrieve-code",async (req,res)=>{
         });
         await redisClient.expire(sessionId, 3600);
 
-        // const messages = await redisClient.lRange(sessionId, 1,-1);
-        // await redisClient.expire(sessionId, 3600);
-        // // console.log(`Message_list in the retrieve code: ${messages}`);
-        // response.sessionId = sessionId;
-        // return res.json(response);
     }catch(error){
         console.error(`error in do_analysis in retrieve_code: ${error||error.status}`);
     }
@@ -369,15 +286,6 @@ async function get_ai_response(sessionId, model = CHAT_MODEL,function_call){
             functions:functions,
             function_call:function_call
         });
-        // Special case for 'length'
-        // if (response.choices[0].finish_reason === 'length') {
-        //     throw new Error('Finish reason was length (maximum context length)');
-        // }
-
-        // Catches for soft errors
-        // if (!['stop', 'function_call'].includes(response.choices[0].finish_reason)) {
-        //     throw new Error(`API call finish with bad finish reason: ${JSON.stringify(response)}`);
-        // }
 
         return response;
 
@@ -416,7 +324,6 @@ function helper_search(paths,results,summary_object){
 async function search_wrapper(sessionId){
     async function database_search(json_object){
         const paths = json_object.paths;
-        // const sessionId = json_object.sessionId;
         console.log(`Search in database for the paths: ${paths}`);
         try{
             //the repo_link is an array because it's retrieved by the lRnage function
@@ -441,7 +348,6 @@ async function search_wrapper(sessionId){
     
     async function code_search(json_object){
         const paths = json_object.paths;
-        // const sessionId = json_object.sessionId;
         console.log(`Search in code(Github) for the paths: ${paths}`);
         let promises = [];
         const repo_link = await redisClient.lRange(sessionId, 0, 0);
@@ -635,16 +541,12 @@ async function step(sessionId,repo_link,user_message,functions_to_call,first_mes
 }
 
 /**
- * Receive the question from the user. Use chatgpt to extract the related files and directories in the question, and call
- * answer_question to answer the question.
- */
-//TODO: use intent classification to identify the most relevant instructions for a user query;
-//
+ * receive the question from the user, and calls functions to get the response.
+*/
 app.post('/api/answer-question', async (req, res) => {
     
     const question = req.body.question;
     const repoLink = req.body.link;
-    // const [owner, repo] = owner_repo(repoLink);
     const sessionId = req.body.sessionId;
     const functions_to_call = await search_wrapper(sessionId);
 
@@ -656,8 +558,6 @@ app.post('/api/answer-question', async (req, res) => {
     const question_id = uuidv4();
     res.json({status:"processing"});
     const response = await step(sessionId,repoLink,question,functions_to_call);
-    // const answer = response.choices[0].message.content;
-    // return res.json(answer);
 });
 
 
@@ -674,7 +574,6 @@ app.get('/api/job-status/retrieve-code/:sessionId',async (req,res)=>{
 
 app.get(`/api/job-status/answer_question/:sessionId`,async (req,res)=>{
     const sessionId = req.params.sessionId;
-    // const question_id = req.params.question_id;
     let last_message = await redisClient.lRange(sessionId,-1,-1);
     last_message = JSON.parse(last_message[0]);
     if(last_message.role === "assistant"){
@@ -685,9 +584,6 @@ app.get(`/api/job-status/answer_question/:sessionId`,async (req,res)=>{
     }
 });
 
-// app.get('*', (req, res) => {
-//     res.sendFile(path.join(__dirname, '../client/build/index.html'));
-// });
 const PORT = process.env.PORT || 8000;
 app.listen(PORT, ()=>{
     console.log(`Server is running on http://localhost:${PORT}`);

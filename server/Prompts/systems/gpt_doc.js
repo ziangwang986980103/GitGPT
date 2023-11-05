@@ -12,6 +12,8 @@ function decorated_prompt(sessionId, paths){
                         from this list: ${paths} . Somtimes the user may give incomplete or even wrong names of the files and directories, you need to infer which one to choose and make sure to choose from the path list to 
                         get valid answer.
 
+                        Note: please break down the reponse into logical segments or paragraphs. This segmentation helps in creating a structured flow of information.
+
 `;
     return system_prompt;
 }
