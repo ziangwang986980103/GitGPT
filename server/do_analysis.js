@@ -76,7 +76,8 @@ async function do_summary(text,attempt=0) {
                 console.log(error);
                 //when the rate limit happens, wait 60 seconds and try again
                 if(attempt<3){
-                    await delay(60000*1.5);
+                    const reset_time = parseFloat(error.response.headers['x-ratelimit-reset-tokens']);
+                    await delay((reset_time+Math.random())*1000);
                     return await do_summary(text,attempt+1);
                 }
                 else{
@@ -107,18 +108,6 @@ async function do_summary(text,attempt=0) {
             let endTime = performance.now();
             // console.log(`The text size is ${text.length} characters. The time of summary is ${(endTime - startTime) / 1000} seconds`);
             return summary;
-            //concatenated the previous summary to the current one
-            // const chunks = await chunkify_text(text, 3000);
-            // let summary = "";
-            // // const summaries = [];
-
-            // for (let i = 0; i < chunks.length; i++) {
-            //     const currentText = summary + chunks[i];
-            //     summary = await do_summary(currentText);
-            //     // summaries.push(summary);
-            //     // concatenatedSummaries += summary;
-            // }
-            // return summary;
         }
         catch (error) {
             console.error(`error in do_summary ${error}`);
