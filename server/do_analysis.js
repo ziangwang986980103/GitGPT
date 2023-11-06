@@ -53,7 +53,7 @@ function delay(ms) {
  * 
  * split the text into chunks and summarize them, and them summarize the summaries recursively. use fixed chunk size 3000 characters here. and the output size will be 5x compressed here
  */
-async function do_summary(text) {
+async function do_summary(text,attempt=0) {
     let startTime = performance.now();
     let messages = [
         { role: "system", content: prompt_summarize },
@@ -73,10 +73,15 @@ async function do_summary(text) {
         }
         catch (error) {
             if (error.message.includes("429")) {
-                console.log("Rate limit exceeded. Please try again later.");
+                console.log(error);
                 //when the rate limit happens, wait 60 seconds and try again
-                await delay(60000);
-                return await do_summary(text);
+                if(attempt<3){
+                    await delay(60000*1.5);
+                    return await do_summary(text,attempt+1);
+                }
+                else{
+                    return "The summary is unavailable.";
+                }
             }
             else if (error.message.includes("400")) {
                 const summary1 = await do_summary(text.substring(0, text.length / 2));
@@ -117,7 +122,7 @@ async function do_summary(text) {
         }
         catch (error) {
             console.error(`error in do_summary ${error}`);
-            
+
         }
     }
 
