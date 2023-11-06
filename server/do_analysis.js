@@ -117,6 +117,7 @@ async function do_summary(text) {
         }
         catch (error) {
             console.error(`error in do_summary ${error}`);
+            
         }
     }
 
