@@ -1,3 +1,4 @@
-Welcome to the GITGPT.
+Welcome to the GitGPT.
 
-You can talk to a github repository through GITGPT. Just tap in a repository link, eg. https://github.com/cpacker/MemGPT, then the GitGPT will analyze it, and it will be ready for you to ask any question about this repo.
+GitGPT is a GPT agent tailored for the code learners of Github. Given a GitHub repository, it will automatically analyze the contents and structure of the repo, and the users can chat with it about any questions related to the repository. You can try the demo on [the website ](https://ziangwang986980103.github.io/GitGPT/) 
+
