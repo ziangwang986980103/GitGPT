@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import ReactMarkdown from 'react-markdown';
 import Inputbox from './Inputbox.js';
 import './AnalyzePage.css';
 
@@ -198,7 +199,8 @@ function AnalyzePage({ repoLink }) {
             {
                 history.map((interaction, index) => (
                     <div key={index} className={`message ${interaction.type}`}>
-                        <p>{interaction.content}</p>
+                        {/* Render the content as Markdown */}
+                        <ReactMarkdown>{interaction.content}</ReactMarkdown>
                     </div>
                 ))
             }
