@@ -21,9 +21,9 @@ import {v4 as uuidv4} from "uuid";
 import redis from 'redis';
 
 const MESSAGE_SUMMARY_WARNING_TOKEN = 10000;
-const CHAT_MODEL = "gpt-3.5-turbo-16k";
+// const CHAT_MODEL = "gpt-3.5-turbo-16k";
 // const CHAT_MODEL="gpt-4-32k";
-
+const CHAT_MODEL = "gpt-4-1106-preview";
 
 let redisClient;
 export async function initialize_redis(){
@@ -556,7 +556,7 @@ app.post('/api/answer-question', async (req, res) => {
 app.get('/api/job-status/retrieve-code/:sessionId',async (req,res)=>{
     const sessionId = req.params.sessionId;
     const messages = await redisClient.lRange(sessionId,0,-1);
-    
+
     if(messages.length >= 2){
         redisClient.del(`progress:${sessionId}`);
         return res.json({status:"completed"});
