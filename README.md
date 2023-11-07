@@ -1,6 +1,9 @@
-# Welcome to the GitGPT!
 
-GitGPT is an AI Agent GPT agent tailored for the code learners of Github. Given a GitHub repository, it will automatically analyze the contents and structure of the repo, and the users can chat with it about any questions related to the repository. You can try the demo on [the website ](https://ziangwang986980103.github.io/GitGPT/) 
+
+
+
+
+
 
 <a name="readme-top"></a>
 
@@ -20,15 +23,15 @@ GitGPT is an AI Agent GPT agent tailored for the code learners of Github. Given 
 <br />
 <div align="center">
   <a href="https://github.com/ziangwang986980103/GitGPT">
-    <img src="images/logo.png" alt="Logo" width="80" height="80">
+    <img src="images/logo.png" alt="Logo" height="200" width="200" >
   </a>
 
-<h3 align="center">project_title</h3>
+<h3 align="center">GitGPT</h3>
 
   <p align="center">
-    project_description
+    GitGPT is an AI Agent GPT agent tailored for the code learners of Github. Given a GitHub repository, it will automatically analyze the contents and structure of the repo, and the users can chat with it about any questions related to the repository.
     <br />
-    <a href="https://github.com/ziangwang986980103/GitGPT"><strong>Explore the docs »</strong></a>
+<!--     <a href="https://github.com/ziangwang986980103/GitGPT"><strong>Explore the docs »</strong></a> -->
     <br />
     <br />
     <a href="https://github.com/ziangwang986980103/GitGPT">View Demo</a>
@@ -72,9 +75,7 @@ GitGPT is an AI Agent GPT agent tailored for the code learners of Github. Given 
 <!-- ABOUT THE PROJECT -->
 ## About The Project
 
-[![Product Name Screen Shot][product-screenshot]](https://example.com)
-
-Here's a blank template to get started: To avoid retyping too much info. Do a search and replace with your text editor for the following: `github_username`, `repo_name`, `twitter_handle`, `linkedin_username`, `email_client`, `email`, `project_title`, `project_description`
+Learning open source code can be hard given the size and complication. I want to build an AI agent that can automatically analyze the whole repository and provide valuable answers to questions about it. GitGPT is context-aware of the files and directory information, including the summary and code, in a GitHub repository after the initial analysis, and it can retrieve them at the appropriate time as context for a user question. 
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -82,14 +83,12 @@ Here's a blank template to get started: To avoid retyping too much info. Do a se
 
 ### Built With
 
-* [![Next][Next.js]][Next-url]
+
 * [![React][React.js]][React-url]
-* [![Vue][Vue.js]][Vue-url]
-* [![Angular][Angular.io]][Angular-url]
-* [![Svelte][Svelte.dev]][Svelte-url]
-* [![Laravel][Laravel.com]][Laravel-url]
-* [![Bootstrap][Bootstrap.com]][Bootstrap-url]
-* [![JQuery][JQuery.com]][JQuery-url]
+* [![Node.js][Node.js]][Node-url]
+* [![Redis][Redis]][Redis-url]
+* [![heroku][heroku]][heroku-url]
+* [![MongoDB][MongoDB]][MongoDB-url]
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -216,19 +215,16 @@ Project Link: [https://github.com/github_username/repo_name](https://github.com/
 [license-shield]: https://img.shields.io/github/license/ziangwang986980103/GitGPT.svg?style=for-the-badge
 [license-url]: https://github.com/ziangwang986980103/GitGPT/blob/master/LICENSE.txt
 [product-screenshot]: images/screenshot.png
-[Next.js]: https://img.shields.io/badge/next.js-000000?style=for-the-badge&logo=nextdotjs&logoColor=white
-[Next-url]: https://nextjs.org/
 [React.js]: https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB
 [React-url]: https://reactjs.org/
-[Vue.js]: https://img.shields.io/badge/Vue.js-35495E?style=for-the-badge&logo=vuedotjs&logoColor=4FC08D
-[Vue-url]: https://vuejs.org/
-[Angular.io]: https://img.shields.io/badge/Angular-DD0031?style=for-the-badge&logo=angular&logoColor=white
-[Angular-url]: https://angular.io/
-[Svelte.dev]: https://img.shields.io/badge/Svelte-4A4A55?style=for-the-badge&logo=svelte&logoColor=FF3E00
-[Svelte-url]: https://svelte.dev/
-[Laravel.com]: https://img.shields.io/badge/Laravel-FF2D20?style=for-the-badge&logo=laravel&logoColor=white
-[Laravel-url]: https://laravel.com
-[Bootstrap.com]: https://img.shields.io/badge/Bootstrap-563D7C?style=for-the-badge&logo=bootstrap&logoColor=white
-[Bootstrap-url]: https://getbootstrap.com
-[JQuery.com]: https://img.shields.io/badge/jQuery-0769AD?style=for-the-badge&logo=jquery&logoColor=white
-[JQuery-url]: https://jquery.com 
+[Node.js]: https://img.shields.io/badge/Node.js-35495E?style=for-the-badge&logo=vuedotjs&logoColor=4FC08D
+[Node-url]: https://nodejs.org/en/about
+[Redis]: https://img.shields.io/badge/Redis-DD0031?style=for-the-badge&logo=Redis&logoColor=white
+[Redis]: https://redis.io/
+[ChatGPT]: https://img.shields.io/badge/ChatGPT-4A4A55?style=for-the-badge&logo=svelte&logoColor=green
+[ChatGPT-url]: https://chat.openai.com/
+[heroku]: https://img.shields.io/badge/heroku-FF2D20?style=for-the-badge&logo=laravel&logoColor=purple
+[heroku-url]: https://www.heroku.com/platform
+[MongoDB]: https://img.shields.io/badge/MongoDB-563D7C?style=for-the-badge&logo=bootstrap&logoColor=dark-green
+[MongoDB-url]: https://www.mongodb.com/
+
