@@ -60,7 +60,7 @@ async function do_summary(text,attempt=0) {
         { role: "user", content: 'Here is the content: ' }
     ];
     const jsonData = {
-        model: "gpt-3.5-turbo-16k",
+        model: "gpt-3.5-turbo-1106",
         messages: messages
     };
     if (text.length <= 30000) {
