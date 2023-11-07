@@ -23,23 +23,6 @@ function chunkify_text(text, chunkSize) {
     let endTime = performance.now();
     // console.log(`The size of the text is ${text.length} characters. The time of chunkify is ${(endTime - startTime) / 1000} seconds`);
     return chunks;
-
-    //split based on the character '/n'
-    // const splitter = new RecursiveCharacterTextSplitter({
-    //      //Set custom chunk size
-    //     chunk_size:chunkSize,
-    //     chunk_overlap:200,
-    //     //Use length of the text as the size measure
-    //     length_function: s => s.length,
-    //     //Use only "\n\n" as the separator
-    //     separators:['\n','\n\n','}',',',';','.']
-    // });
-
-    // const output = await splitter.createDocuments([text]);
-    // const parsedOutput = output.map((value,i)=>(value.pageContent));
-    // let endTime = performance.now();
-    // console.log(`The size of the text is ${text.length} characters. The time of chunkify is ${(endTime - startTime)/1000} seconds`);
-    // return parsedOutput;
 }
 
 function delay(ms) {
@@ -76,8 +59,9 @@ async function do_summary(text,attempt=0) {
                 console.log(error);
                 //when the rate limit happens, wait 60 seconds and try again
                 if(attempt<3){
-                    const reset_time = parseFloat(error.response.headers['x-ratelimit-reset-tokens']);
-                    await delay((reset_time+Math.random())*1000);
+                    // const reset_time = parseFloat(error.response.headers['x-ratelimit-reset-tokens']);
+                    // await delay((reset_time+Math.random())*1000);
+                    await delay(60000);
                     return await do_summary(text,attempt+1);
                 }
                 else{
