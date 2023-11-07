@@ -9,9 +9,7 @@ const octokit = new Octokit({ auth: process.env.GITHUB_PAT });
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API
 });
-// import {initialize_redis} from "./server.js";
-
-// let redisClient = await initialize_redis();
+//TODO: add rate limit 
 
 function chunkify_text(text, chunkSize) {
     let startTime = performance.now();
@@ -75,6 +73,7 @@ async function do_summary(text,attempt=0) {
             }
             else {
                 console.error("An error occurred:", error.message);
+                
                 // General error handling
             }
         }
@@ -95,7 +94,7 @@ async function do_summary(text,attempt=0) {
         }
         catch (error) {
             console.error(`error in do_summary ${error}`);
-
+            throw error;
         }
     }
 
