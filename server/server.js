@@ -25,6 +25,26 @@ const MESSAGE_SUMMARY_WARNING_TOKEN = 10000;
 // const CHAT_MODEL="gpt-4-32k";
 const CHAT_MODEL = "gpt-4-1106-preview";
 
+
+//1. CURRENT DESIGN Problem:
+//  1) Gitgpt currently is not a independent and intelligent agent. It can only do summarization of files and directories, and add them
+//     as external knowledge for the query to chatgpt. The two functions code_search and databse_search are both used for searching the 
+//     relevant information.
+//  2) Gitgpt currently needs a large amount of time to summarize the repository's files and directories.
+//  In summary, Gitgpt for now is just a timely and constrained RAG agent. Its core is still the ChatGPT. 
+//NEXT STEP:
+//  I want to make GITGPT a true intelligent agent.
+//  1) Decision making and inference: It will think about the intent of users' question, and make decisions on what it should do. It only has a
+//     list of basic operations such as get a repo's content, search the repo's code, get a commit .etc. Then it will figure out the steps of actions to conduct 
+//      to answer the users' questions. For example, if the user is insterested in what a directory is doing, a possible chain of actions is to retrieve
+//      the subdirectories and subfiles contents, do some necessary summarization, and then infer what the directory is doing.
+//  2)  Error handling: Gitgpt should be able to handle errors such as rate limit and bad query parameters correctly. It should think like a human on what cause the error
+//     and also make decisions on what actions to take to solve the errors.
+//  3) Progressive solution: If a question need a long and complex chain of actions, it should do it progressively and send feedback to the uers iteratively.
+//  4) User intervention?: Maybe show the chain of actions to user and ask users to customize them according to their needs?
+
+
+
 let redisClient;
 export async function initialize_redis(){
     if(!redisClient){

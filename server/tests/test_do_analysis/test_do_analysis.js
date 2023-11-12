@@ -1,16 +1,20 @@
-import dotenv from 'dotenv';
-dotenv.config();
+// import dotenv from 'dotenv';
+// dotenv.config();
+// import 'dotenv/config';
+// import dotenv from 'dotenv';
+// dotenv.config({ path: '../../../.env' });
 import fs from "fs";
 import { Octokit } from "@octokit/rest";
 // import { process } from '../../env.js';
 import prompt_summarize from '../../Prompts/gpt_summarize.js';
 import OpenAI, { NotFoundError } from 'openai';
-const octokit = new Octokit({ auth: process.env.GITHUB_PAT });
+const octokit = new Octokit({
+    auth: "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" });
 const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API
+    apiKey: "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"
 });
 import file_to_be_ignored from "../../Prompts/ignore.js";
-import { RecursiveCharacterTextSplitter } from "langchain/text_splitter"
+
 
 
 // function chunkify_text(text, chunkSize) {
@@ -282,22 +286,6 @@ function chunkify_text(text, chunkSize) {
     // console.log(`The size of the text is ${text.length} characters. The time of chunkify is ${(endTime - startTime) / 1000} seconds`);
     return chunks;
 
-    //split based on the character '/n'
-    // const splitter = new RecursiveCharacterTextSplitter({
-    //      //Set custom chunk size
-    //     chunk_size:chunkSize,
-    //     chunk_overlap:200,
-    //     //Use length of the text as the size measure
-    //     length_function: s => s.length,
-    //     //Use only "\n\n" as the separator
-    //     separators:['\n','\n\n','}',',',';','.']
-    // });
-
-    // const output = await splitter.createDocuments([text]);
-    // const parsedOutput = output.map((value,i)=>(value.pageContent));
-    // let endTime = performance.now();
-    // console.log(`The size of the text is ${text.length} characters. The time of chunkify is ${(endTime - startTime)/1000} seconds`);
-    // return parsedOutput;
 }
 
 function delay(ms) {
@@ -334,8 +322,9 @@ async function do_summary(text, attempt = 0) {
                 console.log(error);
                 //when the rate limit happens, wait 60 seconds and try again
                 if (attempt < 3) {
-                    const reset_time = parseFloat(error.response.headers['x-ratelimit-reset-tokens']);
-                    await delay((reset_time + Math.random()) * 1000);
+                    // const reset_time = parseFloat(error.response.headers['x-ratelimit-reset-tokens']);
+                    // await delay((reset_time + Math.random()) * 1000);
+                    await delay(60000);
                     return await do_summary(text, attempt + 1);
                 }
                 else {
@@ -380,51 +369,78 @@ async function do_summary(text, attempt = 0) {
  * This function will recursive analyze the sub-directories/files of the current path, and then summarize them to get the analysis of the current path.
  * @returns {object} repo_analysis -a object containing the analysis of the current repo in the form {path:string, type: string(dir,file), analysis: string, children:[array of the sub-directories/files analysis object]}. The children will be empty if it's a file
  */
-async function do_analysis(repoLink, owner, repo, verbose, processing_detail, sessionId, redisClient) {
+async function do_analysis(repoLink, owner, repo, verbose, processing_detail, sessionId=" ", redisClient=null) {
     let startTime = performance.now();
 
     let intervalId = setInterval(async () => {
-        await redisClient.set(`progress:${sessionId}`, JSON.stringify(processing_detail));
+        // await redisClient.set(`progress:${sessionId}`, JSON.stringify(processing_detail));
     }, 10000); //update the processing_detail every ten seconds
     if (verbose) {
         console.log(`Processing the directory: ${repoLink}`);
         processing_detail.push(`Processing the directory: ${repoLink}`);
     }
-    let repository = await octokit.request('GET /repos/{owner}/{repo}', {
-        owner: owner,
-        repo: repo,
-        headers: {
-            'X-GitHub-Api-Version': '2022-11-28'
-        }
-    })
+    let repository;
+    try{
+        repository = await octokit.request('GET /repos/{owner}/{repo}', {
+            owner: owner,
+            repo: repo,
+            headers: {
+                'X-GitHub-Api-Version': '2022-11-28'
+            }
+        });
+    }
+    catch(error){
+        console.log("error in getting the repository with github api: ",error);
+    }
 
-    let result = await octokit.request('GET /repos/{owner}/{repo}/git/trees/{tree_sha}', {
-        owner: owner,
-        repo: repo,
-        tree_sha: repository.data.default_branch,
-        headers: {
-            'X-GitHub-Api-Version': '2022-11-28'
-        }
-    })
+    let result;
+    try{
+        result = await octokit.request('GET /repos/{owner}/{repo}/git/trees/{tree_sha}', {
+            owner: owner,
+            repo: repo,
+            tree_sha: repository.data.default_branch,
+            headers: {
+                'X-GitHub-Api-Version': '2022-11-28'
+            }
+        });
+    }catch(error){
+        console.log(`error in getting the result of github repo: ${error}`);
+    }
+    
     //the paths to and type of the root's directories and files
     let paths = result.data.tree.map((value, index) => ({ path: value.path, type: value.type }));
-    let promises = paths.map(async item => {
-        return await recursive_analysis(item, owner, repo, verbose, processing_detail, redisClient);
-    });
+    let promises;
+    try{
+        promises = paths.map(async item => {
+            return await recursive_analysis(item, owner, repo, verbose, processing_detail, redisClient);
+        });
+    }catch(error){
+        console.log(`error in get promises in do_analysis: ${error}`);
+    }
 
     //summarize the analysis
-    let results = await Promise.allSettled(promises);
+    let results;
+    try{
+        results = await Promise.allSettled(promises);
+    }catch(error){
+        console.log(`error in promise.allsettled in do_analysis: ${error}`);
+    }
     let concatenated = "";
-    let parseResults = results.map((item, i) => {
-        concatenated += JSON.stringify({
-            path: item.value.path,
-            type: item.value.type,
-            summary: (item.status === "fulfilled") ? item.value.summary : "The summary is unavailable. You should infer it based on the path."
-        }) + ",\n";
-        return item.value;  // or whatever transformation you want to apply
-    });
-    // console.log("children: ",children);
-    // console.log("concatenated in do_analysis: ", concatenated);
+    let parseResults;
+    try{
+        parseResults = results.map((item, i) => {
+
+            concatenated += JSON.stringify({
+                path: item.value.path,
+                type: item.value.type,
+                summary: (item.status === "fulfilled") ? item.value.summary : "The summary is unavailable. You should infer it based on the path."
+            }) + ",\n";
+            return item.value;  // or whatever transformation you want to apply
+        });
+    }catch(error){
+        console.log(`error in parseResults in do_analysis: ${error}`);
+    }
+    
 
     let summary = await do_summary(concatenated);
     if (verbose) {
@@ -432,8 +448,9 @@ async function do_analysis(repoLink, owner, repo, verbose, processing_detail, se
         console.log(`Finish Processing the directory: ${repoLink}. The processing takes ${(endTime - startTime) / 1000} seconds.`);
         processing_detail.push(`Finish Processing the directory: ${repoLink}. The processing takes ${(endTime - startTime) / 1000} seconds.`);
     }
-    await redisClient.set(`progress:${sessionId}`, JSON.stringify(processing_detail));
+    // await redisClient.set(`progress:${sessionId}`, JSON.stringify(processing_detail));
     clearInterval(intervalId);
+    // await redisClient.del(`progress:${sessionId}`);
     return {
         path: repoLink,
         type: "dir",
@@ -508,19 +525,46 @@ async function recursive_analysis(item, owner, repo, verbose, processing_detail,
             console.log(`Processing the directory: ${item.path}`);
             processing_detail.push(`Processing the directory: ${item.path}`);
         }
-        const promises = response.data.map(async (value, i) => {
-            return await recursive_analysis({ path: value.path, type: value.type }, owner, repo, true, processing_detail, redisClient);
-        });
-        const results = await Promise.allSettled(promises);
+        let promises;
+        try{
+            promises = response.data.map(async (value, i) => {
+                return await recursive_analysis({ path: value.path, type: value.type }, owner, repo, true, processing_detail, redisClient);
+            })
+        }catch(error){
+            console.log(`error in promises in recursive_analysis: ${error}`);
+        }
+        let results;
+        
+        try{
+            results = await Promise.allSettled(promises);
+        }
+        catch(error){
+            console.log(`error in results in recursive_analysis: ${error}`);
+        }
         let concatenated = "";
-        let parseResults = results.map((item, i) => {
-            concatenated += JSON.stringify({
-                path: item.value.path,
-                type: item.value.type,
-                summary: (item.status === "fulfilled") ? item.value.summary : "The summary is unavailable. You should infer it based on the path."
-            }) + ",\n";
-            return item.value;  // or whatever transformation you want to apply
-        });
+        let parseResults;
+        try{
+            parseResults = results.map((item, i) => {
+                if(item.status === "fulfilled"){
+                    concatenated += JSON.stringify({
+                        path: item.value.path,
+                        type: item.value.type,
+                        summary: item.value.summary
+                    }) + ",\n";
+                    return item.value;
+                }
+                else{
+                    console.log("an promise fails: ",item);
+                    return {
+                        path:"unavailable",
+                        type:"unavailable",
+                        summary:"unavailable"
+                    }
+                }
+            });
+        }catch(error){
+            console.log(`error in parseResults in recursive_analysis: ${error}`);
+        }
         // console.log("parsedResults:",parseResults);
         // console.log("concatenated:", concatenated);
 
@@ -541,7 +585,7 @@ async function recursive_analysis(item, owner, repo, verbose, processing_detail,
 
 try {
     const beginTime = performance.now();
-    const repo_analysis = await do_analysis("https://github.com/facebook/react", "facebook","react",true);
+    const repo_analysis = await do_analysis("https://github.com/facebook/react", "facebook","react",true,[]);
     const endTime = performance.now();
     console.log(repo_analysis);
     console.log("successfully do the repo_analysis");
