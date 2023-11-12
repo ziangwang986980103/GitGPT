@@ -9,11 +9,12 @@ import { Octokit } from "@octokit/rest";
 import prompt_summarize from '../../Prompts/gpt_summarize.js';
 import OpenAI, { NotFoundError } from 'openai';
 const octokit = new Octokit({
-    auth: "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" });
+    auth: process.env.GITHUB_PAT });
 const openai = new OpenAI({
-    apiKey: "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"
+    apiKey: process.env.OPENAI_API
 });
 import file_to_be_ignored from "../../Prompts/ignore.js";
+import { env } from "process";
 
 
 
